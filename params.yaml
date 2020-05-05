@@ -1,7 +1,9 @@
 ego_scan_topic: '/scan'
+opp_scan_topic: '/opp_scan'
 ego_odom_topic: '/odom'
 opp_odom_topic: '/opp_odom'
 ego_drive_topic: '/drive'
+opp_drive_topic: '/opp_drive'
 
 lap_count_topic: '/lap_count'
 lap_time_topic: '/lap_time'

@@ -8,6 +8,8 @@ from geometry_msgs.msg import Transform
 from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 
+import message_filters
+
 from f1tenth_gym_ros.msg import RaceInfo
 
 from tf2_ros import transform_broadcaster
@@ -22,9 +24,11 @@ class GymBridge(object):
     def __init__(self):
         # get params
         self.ego_scan_topic = rospy.get_param('ego_scan_topic')
+        self.opp_scan_topic = rospy.get_param('opp_scan_topic')
         self.ego_odom_topic = rospy.get_param('ego_odom_topic')
         self.opp_odom_topic = rospy.get_param('opp_odom_topic')
         self.ego_drive_topic = rospy.get_param('ego_drive_topic')
+        self.opp_drive_topic = rospy.get_param('opp_drive_topic')
         self.race_info_topic = rospy.get_param('race_info_topic')
 
         self.scan_distance_to_base_link = rospy.get_param('scan_distance_to_base_link')
@@ -56,7 +60,6 @@ class GymBridge(object):
 
         # init opponent agent
         # TODO: init by params.yaml
-        self.opp_agent = PurePursuitAgent(csv_path, wheelbase)
         initial_state = {'x':[0.0, 2.0], 'y': [0.0, 0.0], 'theta': [0.0, 0.0]}
         self.obs, _, self.done, _ = self.racecar_env.reset(initial_state)
         self.ego_pose = [0., 0., 0.]
@@ -68,24 +71,32 @@ class GymBridge(object):
 
         # keep track of latest sim state
         self.ego_scan = list(self.obs['scans'][0])
+        self.opp_scan = list(self.obs['scans'][1])
 
         # transform broadcaster
         self.br = transform_broadcaster.TransformBroadcaster()
 
         # pubs
         self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
+        self.opp_scan_pub = rospy.Publisher(self.opp_scan_topic, LaserScan, queue_size=1)
         self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
         self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
         self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
 
         # subs
-        self.drive_sub = rospy.Subscriber(self.ego_drive_topic, AckermannDriveStamped, self.drive_callback, queue_size=1)
+        # self.drive_sub = rospy.Subscriber(self.ego_drive_topic, AckermannDriveStamped, self.drive_callback, queue_size=1)
+        self.drive_sub = message_filters.Subscriber(self.ego_drive_topic, AckermannDriveStamped, queue_size=1)
+        self.opp_drive_sub = message_filters.Subscriber(self.opp_drive_topic, AckermannDriveStamped, queue_size=1)
+
+        ts = message_filters.ApproximateTimeSynchronizer([self.drive_sub, self.opp_drive_sub], 1, 0.05, allow_headerless=True)
+        ts.registerCallback(self.drive_callback)
 
         # Timer
         self.timer = rospy.Timer(rospy.Duration(0.004), self.timer_callback)
 
     def update_sim_state(self):
         self.ego_scan = list(self.obs['scans'][0])
+        self.opp_scan = list(self.obs['scans'][1])
 
         self.ego_pose[0] = self.obs['poses_x'][0]
         self.ego_pose[1] = self.obs['poses_y'][0]
@@ -101,12 +112,12 @@ class GymBridge(object):
         self.opp_speed[1] = self.obs['linear_vels_y'][1]
         self.opp_speed[2] = self.obs['ang_vels_z'][1]
 
-    def drive_callback(self, drive_msg):
-        # print('in drive callback')
-        # TODO: trigger opp agent plan, step env, update pose and steer and vel
+    def drive_callback(self, drive_msg, opp_drive_msg):
         ego_speed = drive_msg.drive.speed
         self.ego_steer = drive_msg.drive.steering_angle
-        opp_speed, self.opp_steer = self.opp_agent.plan(self.obs)
+
+        opp_speed = opp_drive_msg.drive.speed
+        self.opp_steer = opp_drive_msg.drive.steering_angle
 
         action = {'ego_idx': 0, 'speed': [ego_speed, opp_speed], 'steer': [self.ego_steer, self.opp_steer]}
         self.obs, step_reward, self.done, info = self.racecar_env.step(action)
@@ -116,7 +127,7 @@ class GymBridge(object):
     def timer_callback(self, timer):
         ts = rospy.Time.now()
 
-        # pub scan
+        # pub scans
         scan = LaserScan()
         scan.header.stamp = ts
         scan.header.frame_id = 'ego_racecar/laser'
@@ -127,6 +138,17 @@ class GymBridge(object):
         scan.range_max = 30.
         scan.ranges = self.ego_scan
         self.ego_scan_pub.publish(scan)
+
+        opp_scan = LaserScan()
+        opp_scan.header.stamp = ts
+        opp_scan.header.frame_id = 'opp_racecar/laser'
+        opp_scan.angle_min = self.angle_min
+        opp_scan.angle_max = self.angle_max
+        opp_scan.angle_increment = self.angle_inc
+        opp_scan.range_min = 0.
+        opp_scan.range_max = 30.
+        opp_scan.ranges = self.opp_scan
+        self.opp_scan_pub.publish(opp_scan)
 
         # pub tf
         self.publish_odom(ts)
