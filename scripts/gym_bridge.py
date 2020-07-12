@@ -60,13 +60,17 @@ class GymBridge(object):
 
         # init opponent agent
         # TODO: init by params.yaml
-        initial_state = {'x':[0.0, 2.0], 'y': [0.0, 0.0], 'theta': [0.0, 0.0]}
+        initial_state = {'x':[0.0, 0.0], 'y': [1.14, -0.88], 'theta': [0.0, 0.0]}
         self.obs, _, self.done, _ = self.racecar_env.reset(initial_state)
-        self.ego_pose = [0., 0., 0.]
+        self.ego_pose = [0., 1.14, 0.]
         self.ego_speed = [0., 0., 0.]
+        self.ego_requested_speed = 0.0
+        self.ego_drive_published = False
         self.ego_steer = 0.0
-        self.opp_pose = [2., 0., 0.]
+        self.opp_pose = [0., -0.88, 0.]
         self.opp_speed = [0., 0., 0.]
+        self.opp_requested_speed = 0.0
+        self.opp_drive_published = False
         self.opp_steer = 0.0
 
         # keep track of latest sim state
@@ -89,14 +93,18 @@ class GymBridge(object):
 
         # subs
         # self.drive_sub = rospy.Subscriber(self.ego_drive_topic, AckermannDriveStamped, self.drive_callback, queue_size=1)
-        self.drive_sub = message_filters.Subscriber(self.ego_drive_topic, AckermannDriveStamped, queue_size=1)
-        self.opp_drive_sub = message_filters.Subscriber(self.opp_drive_topic, AckermannDriveStamped, queue_size=1)
+        # self.drive_sub = message_filters.Subscriber(self.ego_drive_topic, AckermannDriveStamped, queue_size=1)
+        # self.opp_drive_sub = message_filters.Subscriber(self.opp_drive_topic, AckermannDriveStamped, queue_size=1)
 
-        ts = message_filters.ApproximateTimeSynchronizer([self.drive_sub, self.opp_drive_sub], 1, 0.05, allow_headerless=True)
-        ts.registerCallback(self.drive_callback)
+        self.drive_sub = rospy.Subscriber(self.ego_drive_topic, AckermannDriveStamped, self.drive_callback, queue_size=1)
+        self.opp_drive_sub = rospy.Subscriber(self.opp_drive_topic, AckermannDriveStamped, self.opp_drive_callback, queue_size=1)
+
+        # ts = message_filters.ApproximateTimeSynchronizer([self.drive_sub, self.opp_drive_sub], 1, 0.05, allow_headerless=True)
+        # ts.registerCallback(self.drive_callback)
 
         # Timer
         self.timer = rospy.Timer(rospy.Duration(0.004), self.timer_callback)
+        self.drive_timer = rospy.Timer(rospy.Duration(0.05), self.drive_timer_callback)
 
     def update_sim_state(self):
         self.ego_scan = list(self.obs['scans'][0])
@@ -116,17 +124,34 @@ class GymBridge(object):
         self.opp_speed[1] = self.obs['linear_vels_y'][1]
         self.opp_speed[2] = self.obs['ang_vels_z'][1]
 
-    def drive_callback(self, drive_msg, opp_drive_msg):
-        ego_speed = drive_msg.drive.speed
+    # def drive_callback(self, drive_msg, opp_drive_msg):
+    #     ego_speed = drive_msg.drive.speed
+    #     self.ego_steer = drive_msg.drive.steering_angle
+
+    #     opp_speed = opp_drive_msg.drive.speed
+    #     self.opp_steer = opp_drive_msg.drive.steering_angle
+
+    #     action = {'ego_idx': 0, 'speed': [ego_speed, opp_speed], 'steer': [self.ego_steer, self.opp_steer]}
+    #     self.obs, step_reward, self.done, info = self.racecar_env.step(action)
+
+    #     self.update_sim_state()
+
+    def drive_callback(self, drive_msg):
+        self.ego_requested_speed = drive_msg.drive.speed
         self.ego_steer = drive_msg.drive.steering_angle
+        self.ego_drive_published = True
 
-        opp_speed = opp_drive_msg.drive.speed
+    def opp_drive_callback(self, opp_drive_msg):
+        self.opp_requested_speed = opp_drive_msg.drive.speed
         self.opp_steer = opp_drive_msg.drive.steering_angle
+        self.opp_drive_published = True
 
-        action = {'ego_idx': 0, 'speed': [ego_speed, opp_speed], 'steer': [self.ego_steer, self.opp_steer]}
-        self.obs, step_reward, self.done, info = self.racecar_env.step(action)
-
-        self.update_sim_state()
+    def drive_timer_callback(self, timer):
+        if self.ego_drive_published and self.opp_drive_published:
+            # pub latest drive msg
+            action = {'ego_idx': 0, 'speed': [self.ego_requested_speed, self.opp_requested_speed], 'steer': [self.ego_steer, self.opp_steer]}
+            self.obs, step_reward, self.done, info = self.racecar_env.step(action)
+            self.update_sim_state()
 
     def timer_callback(self, timer):
         ts = rospy.Time.now()
