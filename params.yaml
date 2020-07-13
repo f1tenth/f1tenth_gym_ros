@@ -1,7 +1,10 @@
-ego_scan_topic: '/scan'
-opp_scan_topic: '/opp_scan'
-ego_odom_topic: '/odom'
-opp_odom_topic: '/opp_odom'
+# change ego_id and opp_id to your liking
+ego_scan_topic: '/ego_id/scan'
+opp_scan_topic: '/opp_id/scan'
+ego_odom_topic: '/ego_id/odom'
+ego_opp_odom_topic: '/ego_id/opp_odom'
+opp_odom_topic: '/opp_id/odom'
+opp_ego_odom_topic: '/opp_id/opp_odom'
 ego_drive_topic: '/drive'
 opp_drive_topic: '/opp_drive'
 

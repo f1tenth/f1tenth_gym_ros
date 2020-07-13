@@ -26,7 +26,9 @@ class GymBridge(object):
         self.ego_scan_topic = rospy.get_param('ego_scan_topic')
         self.opp_scan_topic = rospy.get_param('opp_scan_topic')
         self.ego_odom_topic = rospy.get_param('ego_odom_topic')
+        self.ego_opp_odom_topic = rospy.get_param('ego_opp_odom_topic')
         self.opp_odom_topic = rospy.get_param('opp_odom_topic')
+        self.opp_ego_odom_topic = rospy.get_param('opp_ego_odom_topic')
         self.ego_drive_topic = rospy.get_param('ego_drive_topic')
         self.opp_drive_topic = rospy.get_param('opp_drive_topic')
         self.race_info_topic = rospy.get_param('race_info_topic')
@@ -88,7 +90,9 @@ class GymBridge(object):
         self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
         self.opp_scan_pub = rospy.Publisher(self.opp_scan_topic, LaserScan, queue_size=1)
         self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
+        self.ego_opp_odom_pub = rospy.Publisher(self.ego_opp_odom_topic, Odometry, queue_size=1)
         self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
+        self.opp_ego_odom_pub = rospy.Publisher(self.opp_ego_odom_topic, Odometry, queue_size=1)
         self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
 
         # subs
@@ -219,6 +223,7 @@ class GymBridge(object):
         ego_odom.twist.twist.linear.y = self.ego_speed[1]
         ego_odom.twist.twist.angular.z = self.ego_speed[2]
         self.ego_odom_pub.publish(ego_odom)
+        self.opp_ego_odom_pub.publish(ego_odom)
 
         opp_odom = Odometry()
         opp_odom.header.stamp = ts
@@ -235,6 +240,7 @@ class GymBridge(object):
         opp_odom.twist.twist.linear.y = self.opp_speed[1]
         opp_odom.twist.twist.angular.z = self.opp_speed[2]
         self.opp_odom_pub.publish(opp_odom)
+        self.ego_opp_odom_pub.publish(opp_odom)
 
     def publish_transforms(self, ts):
         ego_t = Transform()
