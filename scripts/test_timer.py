@@ -11,7 +11,7 @@ class TestTimer(unittest.TestCase):
 
     def callback(self):
         window = 5000
-        expected_fps = 250  # current setting is to have both timer & drive timer update at 250 Hz (every 0.004s)
+        expected_fps = 100  # current setting is to have both timer & drive timer update at 250 Hz (every 0.004s)
 
         self.published = True
         self.counter += 1
