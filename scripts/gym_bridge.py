@@ -107,7 +107,7 @@ class GymBridge(object):
         # ts.registerCallback(self.drive_callback)
 
         # Timer
-        self.timer = rospy.Timer(rospy.Duration(0.01), self.timer_callback)
+        self.timer = rospy.Timer(rospy.Duration(0.004), self.timer_callback)
         self.drive_timer = rospy.Timer(rospy.Duration(0.01), self.drive_timer_callback)
 
     def update_sim_state(self):

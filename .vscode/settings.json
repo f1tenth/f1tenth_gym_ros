@@ -1,0 +1,10 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/han/Documents/F110_ws_new/devel/lib/python2.7/dist-packages",
+        "/opt/ros/melodic/lib/python2.7/dist-packages",
+        "/home/han/Documents/F110_ws/devel/lib/python3/dist-packages",
+        "/home/han/Documents/autosim_ws/devel/lib/python2.7/dist-packages",
+        " ~/Documents/deep_flow_control/training/"
+    ],
+    "python.pythonPath": "/home/han/miniconda3/envs/ros/bin/python"
+}
