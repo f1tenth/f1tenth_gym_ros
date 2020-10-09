@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import os
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped
@@ -13,6 +14,8 @@ from f1tenth_gym_ros.msg import RaceInfo
 from tf2_ros import transform_broadcaster
 from tf.transformations import quaternion_from_euler
 
+import message_filters
+
 import numpy as np
 
 from agents import PurePursuitAgent
@@ -20,36 +23,68 @@ from agents import PurePursuitAgent
 import gym
 class GymBridge(object):
     def __init__(self):
-        # get params
-        self.ego_scan_topic = rospy.get_param('ego_scan_topic')
-        self.ego_odom_topic = rospy.get_param('ego_odom_topic')
-        self.opp_odom_topic = rospy.get_param('opp_odom_topic')
-        self.ego_drive_topic = rospy.get_param('ego_drive_topic')
-        self.race_info_topic = rospy.get_param('race_info_topic')
+        # get env vars
+        self.race_scenario = os.environ.get('RACE_SCENARIO')
+        if self.race_scenario is None:
+            print('Race scenario not set! Using single car timed trial as default.')
+            self.race_scenario = 0
+        else:
+            self.race_scenario = int(self.race_scenario)
+        self.ego_id = os.environ.get('EGO_ID')
+        self.opp_id = os.environ.get('OPP_ID')
+        if self.opp_id is None:
+            print('Opponent id not set! Using opp_id as default.')
+            self.opp_id = 'opp_id'
 
+        # initialize parameters
+
+        # Topic Names
+        self.race_info_topic = rospy.get_param('race_info_topic')
+        self.ego_scan_topic = '/' + self.ego_id + '/scan'
+        self.ego_odom_topic = '/' + self.ego_id + '/odom'
+        self.opp_odom_topic = '/' + self.opp_id + '/odom'
+        self.ego_drive_topic = '/' + self.ego_id + '/drive'
+        if self.race_scenario:
+            # 2 car grand prix, need extra topics
+            self.opp_scan_topic = '/' + self.opp_id + '/scan'
+            self.ego_opp_odom_topic = '/' + self.ego_id + '/opp_odom'
+            self.opp_ego_odom_topic = '/' + self.opp_id + '/opp_odom'
+            self.opp_drive_topic = '/' + self.opp_id + '/drive'
+        else:
+            # single car timed trial (qualifying)
+            pass
         self.scan_distance_to_base_link = rospy.get_param('scan_distance_to_base_link')
 
-        self.map_path = rospy.get_param('map_path')
-        self.map_img_ext = rospy.get_param('map_img_ext')
-        print(self.map_path, self.map_img_ext)
-        exec_dir = rospy.get_param('executable_dir')
+        # Map
+        self.map_path = os.environ.get('RACE_MAP_PATH')
+        self.map_img_ext = os.environ.get('RACE_MAP_IMG_EXT')
+        # self.map_path = rospy.get_param('map_path')
+        # self.map_img_ext = rospy.get_param('map_img_ext')
+        
+        # C++ backend
+        exec_dir = os.environ.get('F1TENTH_EXEC_DIR')
+        # exec_dir = rospy.get_param('executable_dir')
 
+        # Scan simulation params
         scan_fov = rospy.get_param('scan_fov')
         scan_beams = rospy.get_param('scan_beams')
         self.angle_min = -scan_fov / 2.
         self.angle_max = scan_fov/ 2.
         self.angle_inc = scan_fov / scan_beams
 
-        csv_path = rospy.get_param('waypoints_path')
+        # Track centerline, legacy
+        # csv_path = rospy.get_param('waypoints_path')
         
+        # Vehicle parameters
         wheelbase = 0.3302
-        mass= 3.47
+        mass= 3.74
         l_r = 0.17145
         I_z = 0.04712
         mu = 0.523
         h_cg = 0.074
         cs_f = 4.718
         cs_r = 5.4562
+
         # init gym backend
         self.racecar_env = gym.make('f110_gym:f110-v0')
         self.racecar_env.init_map(self.map_path, self.map_img_ext, False, False)
@@ -57,18 +92,26 @@ class GymBridge(object):
 
         # init opponent agent
         # TODO: init by params.yaml
-        self.opp_agent = PurePursuitAgent(csv_path, wheelbase)
+        # self.opp_agent = PurePursuitAgent(csv_path, wheelbase)
+        # TODO: change initial state by environment variable
         initial_state = {'x':[0.0, 200.0], 'y': [0.0, 200.0], 'theta': [0.0, 0.0]}
         self.obs, _, self.done, _ = self.racecar_env.reset(initial_state)
+
         self.ego_pose = [0., 0., 0.]
         self.ego_speed = [0., 0., 0.]
         self.ego_steer = 0.0
+        self.ego_requested_speed = 0.0
+        self.ego_drive_published = False
+
         self.opp_pose = [200., 200., 0.]
         self.opp_speed = [0., 0., 0.]
         self.opp_steer = 0.0
+        self.opp_requested_speed = 0.0
+        self.opp_drive_published = False
 
         # keep track of latest sim state
         self.ego_scan = list(self.obs['scans'][0])
+        self.opp_scan = list(self.obs['scans'][0])
         
         # keep track of collision
         self.ego_collision = False
@@ -78,9 +121,18 @@ class GymBridge(object):
         self.br = transform_broadcaster.TransformBroadcaster()
 
         # pubs
+        # self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
+        # self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
+        # self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
+        # self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
+
+        # TODO: `handle the scenarios?
         self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
+        self.opp_scan_pub = rospy.Publisher(self.opp_scan_topic, LaserScan, queue_size=1)
         self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
+        self.ego_opp_odom_pub = rospy.Publisher(self.ego_opp_odom_topic, Odometry, queue_size=1)
         self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
+        self.opp_ego_odom_pub = rospy.Publisher(self.opp_ego_odom_topic, Odometry, queue_size=1)
         self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
 
         # subs
