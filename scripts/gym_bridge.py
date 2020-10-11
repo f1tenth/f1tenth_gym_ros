@@ -90,20 +90,25 @@ class GymBridge(object):
         self.racecar_env.init_map(self.map_path, self.map_img_ext, False, False)
         self.racecar_env.update_params(mu, h_cg, l_r, cs_f, cs_r, I_z, mass, exec_dir, double_finish=True)
 
-        # init opponent agent
-        # TODO: init by params.yaml
-        # self.opp_agent = PurePursuitAgent(csv_path, wheelbase)
-        # TODO: change initial state by environment variable
-        initial_state = {'x':[0.0, 200.0], 'y': [0.0, 200.0], 'theta': [0.0, 0.0]}
+        # init agent poses
+        if self.race_scenario:
+            # two car
+            initial_state = {'x':[float(os.environ.get('EGO_STARTING_X')), float(os.environ.get('OPP_STARTING_X'))], 'y': [float(os.environ.get('EGO_STARTING_Y')), float(os.environ.get('OPP_STARTING_Y'))], 'theta': [float(os.environ.get('EGO_STARTING_THETA')), float(os.environ.get('OPP_STARTING_THETA'))]}
+            self.ego_pose = [float(os.environ.get('EGO_STARTING_X')), float(os.environ.get('EGO_STARTING_Y')), float(os.environ.get('EGO_STARTING_THETA'))]
+            self.opp_pose = [float(os.environ.get('OPP_STARTING_X')), float(os.environ.get('OPP_STARTING_Y')), float(os.environ.get('OPP_STARTING_THETA'))]
+        else:
+            # single car
+            initial_state = {'x':[float(os.environ.get('EGO_STARTING_X')), 200.0], 'y': [float(os.environ.get('EGO_STARTING_Y')), 200.0], 'theta': [float(os.environ.get('EGO_STARTING_THETA')), 0.0]}
+            self.ego_pose = [float(os.environ.get('EGO_STARTING_X')), float(os.environ.get('EGO_STARTING_Y')), float(os.environ.get('EGO_STARTING_THETA'))]
+            self.opp_pose = [200., 200., 0.]
+        
         self.obs, _, self.done, _ = self.racecar_env.reset(initial_state)
 
-        self.ego_pose = [0., 0., 0.]
         self.ego_speed = [0., 0., 0.]
         self.ego_steer = 0.0
         self.ego_requested_speed = 0.0
         self.ego_drive_published = False
-
-        self.opp_pose = [200., 200., 0.]
+        
         self.opp_speed = [0., 0., 0.]
         self.opp_steer = 0.0
         self.opp_requested_speed = 0.0
