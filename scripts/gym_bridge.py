@@ -125,29 +125,33 @@ class GymBridge(object):
         # transform broadcaster
         self.br = transform_broadcaster.TransformBroadcaster()
 
-        # pubs
-        # self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
-        # self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
-        # self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
-        # self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
-
-        # TODO: `handle the scenarios?
-        self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
-        self.opp_scan_pub = rospy.Publisher(self.opp_scan_topic, LaserScan, queue_size=1)
-        self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
-        self.ego_opp_odom_pub = rospy.Publisher(self.ego_opp_odom_topic, Odometry, queue_size=1)
-        self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
-        self.opp_ego_odom_pub = rospy.Publisher(self.opp_ego_odom_topic, Odometry, queue_size=1)
-        self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
+        # publishers
+        if self.race_scenario:
+            self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
+            self.opp_scan_pub = rospy.Publisher(self.opp_scan_topic, LaserScan, queue_size=1)
+            self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
+            self.ego_opp_odom_pub = rospy.Publisher(self.ego_opp_odom_topic, Odometry, queue_size=1)
+            self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
+            self.opp_ego_odom_pub = rospy.Publisher(self.opp_ego_odom_topic, Odometry, queue_size=1)
+            self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
+        else:
+            self.ego_scan_pub = rospy.Publisher(self.ego_scan_topic, LaserScan, queue_size=1)
+            self.ego_odom_pub = rospy.Publisher(self.ego_odom_topic, Odometry, queue_size=1)
+            self.opp_odom_pub = rospy.Publisher(self.opp_odom_topic, Odometry, queue_size=1)
+            self.info_pub = rospy.Publisher(self.race_info_topic, RaceInfo, queue_size=1)
 
         # subs
         self.drive_sub = rospy.Subscriber(self.ego_drive_topic, AckermannDriveStamped, self.drive_callback, queue_size=1)
-
+        if self.race_scenario:
+            self.opp_drive_sub = rospy.Subscriber(self.opp_drive_topic, AckermannDriveStamped, self.opp_drive_callback, queue_size=1)
         # Timer
         self.timer = rospy.Timer(rospy.Duration(0.004), self.timer_callback)
+        self.drive_timer = rospy.Timer(rospy.Duration(0.01), self.drive_timer_callback)
 
     def update_sim_state(self):
         self.ego_scan = list(self.obs['scans'][0])
+        if self.race_scenario:
+            self.opp_scan = list(self.obs['scans'][1])
 
         self.ego_pose[0] = self.obs['poses_x'][0]
         self.ego_pose[1] = self.obs['poses_y'][0]
@@ -164,22 +168,33 @@ class GymBridge(object):
         self.opp_speed[2] = self.obs['ang_vels_z'][1]
 
     def drive_callback(self, drive_msg):
-        # print('in drive callback')
-        # TODO: trigger opp agent plan, step env, update pose and steer and vel
-        ego_speed = drive_msg.drive.speed
+        self.ego_requested_speed = drive_msg.drive.speed
         self.ego_steer = drive_msg.drive.steering_angle
-        # opp_speed, self.opp_steer = self.opp_agent.plan(self.obs)
-        opp_speed = 0.
-        opp_steer = 0.
-        action = {'ego_idx': 0, 'speed': [ego_speed, opp_speed], 'steer': [self.ego_steer, self.opp_steer]}
-        self.obs, step_reward, self.done, info = self.racecar_env.step(action)
+        self.ego_drive_published = True
 
-        self.update_sim_state()
+    def opp_drive_callback(self, opp_drive_msg):
+        self.opp_requested_speed = opp_drive_msg.drive.speed
+        self.opp_steer = opp_drive_msg.drive.steering_angle
+        self.opp_drive_published = True
+
+    def drive_timer_callback(self, timer):
+        if self.race_scenario:
+            # two car
+            if self.ego_drive_published and self.opp_drive_published:
+                action = {'ego_idx': 0, 'speed': [self.ego_requested_speed, self.opp_requested_speed], 'steer': [self.ego_steer, self.opp_steer]}
+                self.obs, step_reward, self.done, info = self.racecar_env.step(action)
+                self.update_sim_state()
+        else:
+            # single car
+            if self.ego_drive_published:
+                action = {'ego_idx': 0, 'speed': [self.ego_requested_speed, 0.], 'steer': [self.ego_steer, 0.]}
+                self.obs, step_reward, self.done, info = self.racecar_env.step(action)
+                self.update_sim_state()
 
     def timer_callback(self, timer):
         ts = rospy.Time.now()
 
-        # pub scan
+        # pub ego scan
         scan = LaserScan()
         scan.header.stamp = ts
         scan.header.frame_id = 'ego_racecar/laser'
@@ -190,6 +205,19 @@ class GymBridge(object):
         scan.range_max = 30.
         scan.ranges = self.ego_scan
         self.ego_scan_pub.publish(scan)
+
+        # conditionally pub opp scan
+        if self.race_scenario:
+            opp_scan = LaserScan()
+            opp_scan.header.stamp = ts
+            opp_scan.header.frame_id = 'opp_racecar/laser'
+            opp_scan.angle_min = self.angle_min
+            opp_scan.angle_max = self.angle_max
+            opp_scan.angle_increment = self.angle_inc
+            opp_scan.range_min = 0.
+            opp_scan.range_max = 30.
+            opp_scan.ranges = self.opp_scan
+            self.opp_scan_pub.publish(opp_scan)
 
         # pub tf
         self.publish_odom(ts)
@@ -231,6 +259,8 @@ class GymBridge(object):
         ego_odom.twist.twist.linear.y = self.ego_speed[1]
         ego_odom.twist.twist.angular.z = self.ego_speed[2]
         self.ego_odom_pub.publish(ego_odom)
+        if self.race_scenario:
+            self.opp_ego_odom_pub.publish(ego_odom)
 
         opp_odom = Odometry()
         opp_odom.header.stamp = ts
@@ -247,6 +277,8 @@ class GymBridge(object):
         opp_odom.twist.twist.linear.y = self.opp_speed[1]
         opp_odom.twist.twist.angular.z = self.opp_speed[2]
         self.opp_odom_pub.publish(opp_odom)
+        if self.race_scenario:
+            self.ego_opp_odom_pub.publish(opp_odom)
 
     def publish_transforms(self, ts):
         ego_t = Transform()
@@ -263,7 +295,6 @@ class GymBridge(object):
         ego_ts.transform = ego_t
         ego_ts.header.stamp = ts
         ego_ts.header.frame_id = '/map'
-        # TODO: check frame names
         ego_ts.child_frame_id = 'ego_racecar/base_link'
 
         opp_t = Transform()
@@ -280,7 +311,6 @@ class GymBridge(object):
         opp_ts.transform = opp_t
         opp_ts.header.stamp = ts
         opp_ts.header.frame_id = '/map'
-        # TODO: check frame names
         opp_ts.child_frame_id = 'opp_racecar/base_link'
 
         self.br.sendTransform(ego_ts)
