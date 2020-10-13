@@ -116,7 +116,7 @@ class GymBridge(object):
 
         # keep track of latest sim state
         self.ego_scan = list(self.obs['scans'][0])
-        self.opp_scan = list(self.obs['scans'][0])
+        self.opp_scan = list(self.obs['scans'][1])
         
         # keep track of collision
         self.ego_collision = False
