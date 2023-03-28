@@ -140,7 +140,7 @@ In **two** agents:
 
 In addition to all topics in the single agent scenario, these topics are also available:
 
-`/opp_drive`: The opponent agent's drive command via `AckermannDriveStamped` messages
+`/opp_drive`: The opponent agent's drive command via `AckermannDriveStamped` messages. Note that you'll need to publish to **both** the ego's drive topic and the opponent's drive topic for the cars to move when using 2 agents.
 
 `/goal_pose`: This is the topic for resetting the opponent agent's pose via RViz's 2D Goal Pose tool. Do **NOT** publish directly to this topic unless you know what you're doing.
 
