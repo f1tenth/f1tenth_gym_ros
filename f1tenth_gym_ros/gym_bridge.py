@@ -41,6 +41,8 @@ from transforms3d import euler
 class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
+        self.get_logger().debug('sim started')
+        self.get_logger().info('sim has started i')
 
         self.declare_parameter('ego_namespace')
         self.declare_parameter('ego_odom_topic')
@@ -86,7 +88,7 @@ class GymBridge(Node):
         self.ego_speed = [0.0, 0.0, 0.0]
         self.ego_requested_speed = 0.0
         self.ego_steer = 0.0
-        self.ego_collision = False
+        self.ego_collision = True
         ego_scan_topic = self.get_parameter('ego_scan_topic').value
         ego_drive_topic = self.get_parameter('ego_drive_topic').value
         scan_fov = self.get_parameter('scan_fov').value
@@ -108,7 +110,7 @@ class GymBridge(Node):
             self.opp_speed = [0.0, 0.0, 0.0]
             self.opp_requested_speed = 0.0
             self.opp_steer = 0.0
-            self.opp_collision = False
+            self.opp_collision = True
             self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1]]))
             self.ego_scan = list(self.obs['scans'][0])
             self.opp_scan = list(self.obs['scans'][1])
