@@ -280,8 +280,9 @@ class GymBridge(Node):
         self.ego_speed[0] = self.obs['linear_vels_x'][0]
         self.ego_speed[1] = self.obs['linear_vels_y'][0]
         self.ego_speed[2] = self.obs['ang_vels_z'][0]
-
-        
+        self.ego_collision = self.obs['collisions'][0]
+        if(self.ego_collision==1):
+            self.get_logger().info("Collision detected")
 
     def _publish_odom(self, ts):
         ego_odom = Odometry()
