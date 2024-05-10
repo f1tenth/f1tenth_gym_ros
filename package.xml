@@ -22,6 +22,9 @@
   <exec_depend>teleop_twist_keyboard</exec_depend>
   
   <depend>python-transforms3d-pip</depend>
+  <depend>example_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>f110_interfaces</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

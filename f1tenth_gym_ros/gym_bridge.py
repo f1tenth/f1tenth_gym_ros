@@ -33,6 +33,7 @@ from geometry_msgs.msg import Transform
 from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
+from example_interfaces.msg import Bool
 
 import gym
 import numpy as np
@@ -41,32 +42,31 @@ from transforms3d import euler
 class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
-        self.get_logger().debug('sim started')
-        self.get_logger().info('sim has started i')
+        self.get_logger().info('sim has started')
 
-        self.declare_parameter('ego_namespace')
-        self.declare_parameter('ego_odom_topic')
-        self.declare_parameter('ego_opp_odom_topic')
-        self.declare_parameter('ego_scan_topic')
-        self.declare_parameter('ego_drive_topic')
-        self.declare_parameter('opp_namespace')
-        self.declare_parameter('opp_odom_topic')
-        self.declare_parameter('opp_ego_odom_topic')
-        self.declare_parameter('opp_scan_topic')
-        self.declare_parameter('opp_drive_topic')
-        self.declare_parameter('scan_distance_to_base_link')
-        self.declare_parameter('scan_fov')
-        self.declare_parameter('scan_beams')
-        self.declare_parameter('map_path')
-        self.declare_parameter('map_img_ext')
-        self.declare_parameter('num_agent')
-        self.declare_parameter('sx')
-        self.declare_parameter('sy')
-        self.declare_parameter('stheta')
-        self.declare_parameter('sx1')
-        self.declare_parameter('sy1')
-        self.declare_parameter('stheta1')
-        self.declare_parameter('kb_teleop')
+        self.declare_parameter('ego_namespace', None)
+        self.declare_parameter('ego_odom_topic', None)
+        self.declare_parameter('ego_opp_odom_topic', None)
+        self.declare_parameter('ego_scan_topic', None)
+        self.declare_parameter('ego_drive_topic', None)
+        self.declare_parameter('opp_namespace', None)
+        self.declare_parameter('opp_odom_topic', None)
+        self.declare_parameter('opp_ego_odom_topic', None)
+        self.declare_parameter('opp_scan_topic', None)
+        self.declare_parameter('opp_drive_topic', None)
+        self.declare_parameter('scan_distance_to_base_link', None)
+        self.declare_parameter('scan_fov', None)
+        self.declare_parameter('scan_beams', None)
+        self.declare_parameter('map_path', None)
+        self.declare_parameter('map_img_ext', None)
+        self.declare_parameter('num_agent', None)
+        self.declare_parameter('sx', None)
+        self.declare_parameter('sy', None)
+        self.declare_parameter('stheta', None)
+        self.declare_parameter('sx1', None)
+        self.declare_parameter('sy1', None)
+        self.declare_parameter('stheta1', None)
+        self.declare_parameter('kb_teleop', None)
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
@@ -137,6 +137,7 @@ class GymBridge(Node):
         # publishers
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
+        self.ego_crash_pub = self.create_publisher(Bool, '/ego_crash', 10)
         self.ego_drive_published = False
         if num_agents == 2:
             self.opp_scan_pub = self.create_publisher(LaserScan, opp_scan_topic, 10)
@@ -262,6 +263,7 @@ class GymBridge(Node):
         self._publish_transforms(ts)
         self._publish_laser_transforms(ts)
         self._publish_wheel_transforms(ts)
+        self._publish_crash()
 
     def _update_sim_state(self):
         self.ego_scan = list(self.obs['scans'][0])
@@ -283,6 +285,14 @@ class GymBridge(Node):
         self.ego_collision = self.obs['collisions'][0]
         if(self.ego_collision==1):
             self.get_logger().info("Collision detected")
+
+    def _publish_crash(self):
+        msg = Bool()
+        if(self.ego_collision==1):
+            msg.data = True
+        else:
+            msg.data = False
+        self.ego_crash_pub.publish(msg)
 
     def _publish_odom(self, ts):
         ego_odom = Odometry()
