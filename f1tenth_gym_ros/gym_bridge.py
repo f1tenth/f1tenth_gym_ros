@@ -33,7 +33,8 @@ from geometry_msgs.msg import Transform
 from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
-from example_interfaces.msg import Bool
+from f110_interfaces.msg import CrashStatus
+
 
 import gym
 import numpy as np
@@ -59,7 +60,7 @@ class GymBridge(Node):
         self.declare_parameter('scan_beams', None)
         self.declare_parameter('map_path', None)
         self.declare_parameter('map_img_ext', None)
-        self.declare_parameter('num_agent', None)
+        self.declare_parameter('num_agent', 1)
         self.declare_parameter('sx', None)
         self.declare_parameter('sy', None)
         self.declare_parameter('stheta', None)
@@ -137,7 +138,7 @@ class GymBridge(Node):
         # publishers
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
-        self.ego_crash_pub = self.create_publisher(Bool, '/ego_crash', 10)
+        self.ego_crash_pub = self.create_publisher(CrashStatus, '/ego_crash', 10)
         self.ego_drive_published = False
         if num_agents == 2:
             self.opp_scan_pub = self.create_publisher(LaserScan, opp_scan_topic, 10)
@@ -263,7 +264,7 @@ class GymBridge(Node):
         self._publish_transforms(ts)
         self._publish_laser_transforms(ts)
         self._publish_wheel_transforms(ts)
-        self._publish_crash()
+        self._publish_crash(ts)
 
     def _update_sim_state(self):
         self.ego_scan = list(self.obs['scans'][0])
@@ -283,16 +284,15 @@ class GymBridge(Node):
         self.ego_speed[1] = self.obs['linear_vels_y'][0]
         self.ego_speed[2] = self.obs['ang_vels_z'][0]
         self.ego_collision = self.obs['collisions'][0]
-        if(self.ego_collision==1):
-            self.get_logger().info("Collision detected")
+        # if(self.ego_collision==1):
+        #     self.get_logger().info("Collision detected")
 
-    def _publish_crash(self):
-        msg = Bool()
+    def _publish_crash(self,ts):
+        crash_ = CrashStatus()
+        crash_.header.stamp = ts
         if(self.ego_collision==1):
-            msg.data = True
-        else:
-            msg.data = False
-        self.ego_crash_pub.publish(msg)
+            crash_.crashed = True
+            self.ego_crash_pub.publish(crash_)
 
     def _publish_odom(self, ts):
         ego_odom = Odometry()
