@@ -115,7 +115,7 @@ class GymBridge(Node):
                                 "reset_config": {"type": "map_random_static"},
                                 "scale": scale,
                             },
-                            render_mode="human",
+                            render_mode="rgb_array",
                         )
 
         sx = self.get_parameter('sx').value
