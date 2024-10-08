@@ -305,19 +305,19 @@ class GymBridge(Node):
         self.ego_scan = list(self.obs['scans'][0])
         if self.has_opp:
             self.opp_scan = list(self.obs['scans'][1])
-            self.opp_pose[0] = self.obs['poses_x'][1]
-            self.opp_pose[1] = self.obs['poses_y'][1]
-            self.opp_pose[2] = self.obs['poses_theta'][1]
-            self.opp_speed[0] = self.obs['linear_vels_x'][1]
-            self.opp_speed[1] = self.obs['linear_vels_y'][1]
-            self.opp_speed[2] = self.obs['ang_vels_z'][1]
+            self.opp_pose[0]  = float(self.obs['poses_x'][1])
+            self.opp_pose[1]  = float(self.obs['poses_y'][1])
+            self.opp_pose[2]  = float(self.obs['poses_theta'][1])
+            self.opp_speed[0] = float(self.obs['linear_vels_x'][1])
+            self.opp_speed[1] = float(self.obs['linear_vels_y'][1])
+            self.opp_speed[2] = float(self.obs['ang_vels_z'][1])
 
-        self.ego_pose[0] = self.obs['poses_x'][0]
-        self.ego_pose[1] = self.obs['poses_y'][0]
-        self.ego_pose[2] = self.obs['poses_theta'][0]
-        self.ego_speed[0] = self.obs['linear_vels_x'][0]
-        self.ego_speed[1] = self.obs['linear_vels_y'][0]
-        self.ego_speed[2] = self.obs['ang_vels_z'][0]
+        self.ego_pose[0] =  float(self.obs['poses_x'][0])
+        self.ego_pose[1] =  float(self.obs['poses_y'][0])
+        self.ego_pose[2] =  float(self.obs['poses_theta'][0])
+        self.ego_speed[0] = float(self.obs['linear_vels_x'][0])
+        self.ego_speed[1] = float(self.obs['linear_vels_y'][0])
+        self.ego_speed[2] = float(self.obs['ang_vels_z'][0])
 
         
 
