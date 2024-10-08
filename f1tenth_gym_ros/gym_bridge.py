@@ -34,9 +34,12 @@ from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
 
-import gym
+import gymnasium as gym
 import numpy as np
 from transforms3d import euler
+
+import pathlib
+from f1tenth_gym.envs.f110_env import F110Env, Track
 
 class GymBridge(Node):
     def __init__(self):
@@ -65,6 +68,8 @@ class GymBridge(Node):
         self.declare_parameter('sy1')
         self.declare_parameter('stheta1')
         self.declare_parameter('kb_teleop')
+        self.declare_parameter('scale')
+        self.declare_parameter('vehicle_params')
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
@@ -73,11 +78,45 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
+        vehicle_params = None
+        if self.get_parameter('vehicle_params').value == 'f1tenth':
+            vehicle_params = F110Env.f1tenth_vehicle_params()
+        elif self.get_parameter('vehicle_params').value == 'fullscale':
+            vehicle_params = F110Env.fullscale_vehicle_params()
+        elif self.get_parameter('vehicle_params').value == 'f1fifth':
+            vehicle_params = F110Env.f1fifth_vehicle_params()
+        else:
+            raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
+
+        scale = self.get_parameter('scale').value
+
+        # Split the path and the name
+        path = self.get_parameter('map_path').value
+        name = path.split('/')[-1].split('.')[0]
+        path = path + '.yaml'
+        self.get_logger().error('Loading map: %s from path: %s' % (name, path))
+
+        # Load the yaml file
+        path = pathlib.Path(path)
+        loaded_map = Track.from_track_path(path)
+
         # env backend
-        self.env = gym.make('f110_gym:f110-v0',
-                            map=self.get_parameter('map_path').value,
-                            map_ext=self.get_parameter('map_img_ext').value,
-                            num_agents=num_agents)
+        self.env = gym.make(
+                            "f1tenth_gym:f1tenth-v0",
+                            config={
+                                "map": loaded_map,
+                                "num_agents": num_agents,
+                                "timestep": 0.01,
+                                "integrator": "rk4",
+                                "control_input": ["speed", "steering_angle"],
+                                "model": "st",
+                                "observation_config": {"type": "kinematic_state"},
+                                "params": vehicle_params,
+                                "reset_config": {"type": "map_random_static"},
+                                "scale": scale,
+                            },
+                            render_mode="human",
+                        )
 
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
