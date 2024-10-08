@@ -262,9 +262,9 @@ class GymBridge(Node):
 
     def drive_timer_callback(self):
         if self.ego_drive_published and not self.has_opp:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
+            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
         elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
+            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
         self._update_sim_state()
 
     def timer_callback(self):
@@ -292,6 +292,7 @@ class GymBridge(Node):
             opp_scan.angle_increment = self.angle_inc
             opp_scan.range_min = 0.
             opp_scan.range_max = 30.
+            self.opp_scan = [float(x) for x in self.opp_scan]
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
 
