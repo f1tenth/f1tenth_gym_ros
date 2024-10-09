@@ -278,6 +278,7 @@ class GymBridge(Node):
         scan.angle_max = self.angle_max
         scan.angle_increment = self.angle_inc
         scan.range_min = 0.
+        scan.range_max = 30.
         # convert each element to float from numpy.float32
         self.ego_scan = [float(x) for x in self.ego_scan]
         scan.ranges = self.ego_scan
