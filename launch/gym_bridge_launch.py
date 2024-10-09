@@ -102,11 +102,23 @@ def generate_launch_description():
                     {'autostart': True},
                     {'node_names': ['map_server']}]
     )
+
+
+    ego_xacro = None
+    if config_dict['bridge']['ros__parameters']['vehicle_params'] == 'f1tenth':
+        ego_xacro = "ego_racecar.xacro"
+    elif config_dict['bridge']['ros__parameters']['vehicle_params'] == 'fullscale':
+        ego_xacro = "ego_racecar_fullscale.xacro"
+    elif config_dict['bridge']['ros__parameters']['vehicle_params'] == 'f1fifth':
+        ego_xacro = "ego_racecar_f1fifth.xacro"
+    else:
+        raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
+    
     ego_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='ego_robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'ego_racecar.xacro')])}],
+        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', ego_xacro)])}],
         remappings=[('/robot_description', 'ego_robot_description')]
     )
     opp_robot_publisher = Node(
