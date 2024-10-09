@@ -98,7 +98,7 @@ class GymBridge(Node):
 
         # Load the yaml file
         path = pathlib.Path(path)
-        loaded_map = Track.from_track_path(path)
+        loaded_map = Track.from_track_path(path, scale)
 
         # env backend
         self.env = gym.make(
