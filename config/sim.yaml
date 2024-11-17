@@ -42,7 +42,7 @@ bridge:
     scan_beams: 1080
 
     # map parameters
-    map_path: '/home/ahmad/F1tenth/ros_ws/src/f1tenth_gym_ros/maps/levine'
+    map_path: 'levine'
     map_img_ext: '.png'
 
     # car parameters and scale
