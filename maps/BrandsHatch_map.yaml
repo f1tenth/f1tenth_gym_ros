@@ -1,0 +1,6 @@
+image: BrandsHatch_map.png
+resolution: 0.05005
+origin: [-39.42711136508635,-88.20832098289893, 0.000000]
+negate: 0
+occupied_thresh: 0.45
+free_thresh: 0.196

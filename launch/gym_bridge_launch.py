@@ -48,7 +48,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz',
-        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz')]
+        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge_5_agents.rviz')]
     )
     map_server_node = Node(
         package='nav2_map_server',
@@ -89,7 +89,21 @@ def generate_launch_description():
         parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'auto_pursuit_racecar.xacro')])}],
         remappings=[('/robot_description', 'auto_pursuit_robot_description')]
     )
-    # finalize
+    heartbreak_robot_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='heartbreak_robot_state_publisher',
+        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'heartbreak_racecar.xacro')])}],
+        remappings=[('/robot_description', 'heartbreak_robot_description')]
+    )
+    team3_robot_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='team3_robot_state_publisher',
+        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'team3_racecar.xacro')])}],
+        remappings=[('/robot_description', 'team3_robot_description')]
+    )
+        # finalize
     ld.add_action(rviz_node)
     ld.add_action(bridge_node)
     ld.add_action(nav_lifecycle_node)
@@ -98,5 +112,7 @@ def generate_launch_description():
     if has_opp:
         ld.add_action(opp_robot_publisher)
         ld.add_action(auto_pursuit_robot_publisher)
+        ld.add_action(heartbreak_robot_publisher)
+        ld.add_action(team3_robot_publisher)
 
     return ld

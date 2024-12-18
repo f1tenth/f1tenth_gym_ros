@@ -117,22 +117,53 @@ class GymBridge(Node):
         opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
 
         self.auto_pursuit_namespace = 'auto_pursuit_racecar'
-        sx_auto_pursuit = 4.0
-        sy_auto_pursuit = 1.0
+        sx_auto_pursuit = 0.0
+        sy_auto_pursuit = 0.0
         stheta_auto_pursuit = 0.0
-        self.auto_pursuit_pose = [sx1, sy1, stheta1]
+        self.auto_pursuit_pose = [sx_auto_pursuit, sy_auto_pursuit, stheta_auto_pursuit]
         self.auto_pursuit_speed = [0.0, 0.0, 0.0]
         self.auto_pursuit_requested_speed = 0.0
         self.auto_pursuit_steer = 0.0
         self.auto_pursuit_collision = False
-        self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1], [sx_auto_pursuit, sy_auto_pursuit, stheta_auto_pursuit]]))
+
+        self.heartbreak_namespace = 'heartbreak_racecar'
+        sx_heartbreak = 0.0
+        sy_heartbreak = 0.0
+        stheta_heartbreak = 0.0
+        self.heartbreak_pose = [sx_heartbreak, sy_heartbreak, stheta_heartbreak]
+        self.heartbreak_speed = [0.0, 0.0, 0.0]
+        self.heartbreak_requested_speed = 0.0
+        self.heartbreak_steer = 0.0
+        self.heartbreak_collision = False
+
+        self.team3_namespace = 'team3_racecar'
+        sx_team3 = 0.0
+        sy_team3 = 0.0
+        stheta_team3 = 0.0
+        self.team3_pose = [sx_team3, sy_team3, stheta_team3]
+        self.team3_speed = [0.0, 0.0, 0.0]
+        self.team3_requested_speed = 0.0
+        self.team3_steer = 0.0
+        self.team3_collision = False
+
+        self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1], [sx_auto_pursuit, sy_auto_pursuit, stheta_auto_pursuit], [sx_heartbreak, sy_heartbreak, stheta_heartbreak], [sx_team3, sy_team3, stheta_team3]]))
         self.ego_scan = list(self.obs['scans'][0])
         self.opp_scan = list(self.obs['scans'][1])
         self.auto_pursuit_scan = list(self.obs['scans'][2])
+        self.heartbreak_scan = list(self.obs['scans'][3])
+        self.team3_scan = list(self.obs['scans'][4])
 
         auto_pursuit_scan_topic = 'auto_pursuit_scan'
         auto_pursuit_odom_topic = self.auto_pursuit_namespace + '/' + 'odom'
         auto_pursuit_drive_topic = 'auto_pursuit_drive'
+
+        heartbreak_scan_topic = 'heartbreak_scan'
+        heartbreak_odom_topic = self.heartbreak_namespace + '/' + 'odom'
+        heartbreak_drive_topic = 'heartbreak_drive'
+
+        team3_scan_topic = 'team3_scan'
+        team3_odom_topic = self.team3_namespace + '/' + 'odom'
+        team3_drive_topic = 'team3_drive'
 
         # sim physical step timer
         self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
@@ -159,6 +190,13 @@ class GymBridge(Node):
         self.auto_pursuit_odom_pub = self.create_publisher(Odometry, auto_pursuit_odom_topic, 10)
         self.auto_pursuit_drive_published = False
 
+        self.heartbreak_scan_pub = self.create_publisher(LaserScan, heartbreak_scan_topic, 10)
+        self.heartbreak_odom_pub = self.create_publisher(Odometry, heartbreak_odom_topic, 10)
+        self.heartbreak_drive_published = False
+
+        self.team3_scan_pub = self.create_publisher(LaserScan, team3_scan_topic, 10)
+        self.team3_odom_pub = self.create_publisher(Odometry, team3_odom_topic, 10)
+        self.team3_drive_published = False
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
@@ -189,6 +227,18 @@ class GymBridge(Node):
             self.auto_pursuit_drive_callback,
             10)
 
+        self.heartbreak_drive_sub = self.create_subscription(
+            AckermannDriveStamped,
+            heartbreak_drive_topic,
+            self.heartbreak_drive_callback,
+            10)
+
+        self.team3_drive_sub = self.create_subscription(
+            AckermannDriveStamped,
+            team3_drive_topic,
+            self.team3_drive_callback,
+            10)
+        
         if self.get_parameter('kb_teleop').value:
             self.teleop_sub = self.create_subscription(
                 Twist,
@@ -211,6 +261,16 @@ class GymBridge(Node):
         self.auto_pursuit_requested_speed = drive_msg.drive.speed
         self.auto_pursuit_steer = drive_msg.drive.steering_angle
         self.auto_pursuit_drive_published = True
+
+    def heartbreak_drive_callback(self, drive_msg):
+        self.heartbreak_requested_speed = drive_msg.drive.speed
+        self.heartbreak_steer = drive_msg.drive.steering_angle
+        self.heartbreak_drive_published = True
+
+    def team3_drive_callback(self, drive_msg):
+        self.team3_requested_speed = drive_msg.drive.speed
+        self.team3_steer = drive_msg.drive.steering_angle
+        self.team3_drive_published = True
 
     def ego_reset_callback(self, pose_msg):
         rx = pose_msg.pose.pose.position.x
@@ -252,8 +312,8 @@ class GymBridge(Node):
     def drive_timer_callback(self):
         if self.ego_drive_published and not self.has_opp:
             self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
-        elif self.ego_drive_published and self.has_opp and self.opp_drive_published and self.auto_pursuit_drive_published:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed], [self.auto_pursuit_steer, self.auto_pursuit_requested_speed]]))
+        elif self.ego_drive_published and self.has_opp and self.opp_drive_published and self.auto_pursuit_drive_published and self.heartbreak_drive_published and self.team3_drive_published:
+            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed], [self.auto_pursuit_steer, self.auto_pursuit_requested_speed], [self.heartbreak_steer, self.heartbreak_requested_speed], [self.team3_steer, self.team3_requested_speed]]))
         self._update_sim_state()
 
     def timer_callback(self):
@@ -294,6 +354,28 @@ class GymBridge(Node):
         auto_pursuit_scan.ranges = self.auto_pursuit_scan
         self.auto_pursuit_scan_pub.publish(auto_pursuit_scan)
 
+        heartbreak_scan = LaserScan()
+        heartbreak_scan.header.stamp = ts
+        heartbreak_scan.header.frame_id = self.heartbreak_namespace + '/laser'
+        heartbreak_scan.angle_min = self.angle_min
+        heartbreak_scan.angle_max = self.angle_max
+        heartbreak_scan.angle_increment = self.angle_inc
+        heartbreak_scan.range_min = 0.
+        heartbreak_scan.range_max = 30.
+        heartbreak_scan.ranges = self.heartbreak_scan
+        self.heartbreak_scan_pub.publish(heartbreak_scan)
+
+        team3_scan = LaserScan()
+        team3_scan.header.stamp = ts
+        team3_scan.header.frame_id = self.team3_namespace + '/laser'
+        team3_scan.angle_min = self.angle_min
+        team3_scan.angle_max = self.angle_max
+        team3_scan.angle_increment = self.angle_inc
+        team3_scan.range_min = 0.
+        team3_scan.range_max = 30.
+        team3_scan.ranges = self.team3_scan
+        self.team3_scan_pub.publish(team3_scan)
+
         # pub tf
         self._publish_odom(ts)
         self._publish_transforms(ts)
@@ -318,6 +400,22 @@ class GymBridge(Node):
         self.auto_pursuit_speed[0] = self.obs['linear_vels_x'][2]
         self.auto_pursuit_speed[1] = self.obs['linear_vels_y'][2]
         self.auto_pursuit_speed[2] = self.obs['ang_vels_z'][2]
+
+        self.heartbreak_scan = list(self.obs['scans'][3])
+        self.heartbreak_pose[0] = self.obs['poses_x'][3]
+        self.heartbreak_pose[1] = self.obs['poses_y'][3]
+        self.heartbreak_pose[2] = self.obs['poses_theta'][3]
+        self.heartbreak_speed[0] = self.obs['linear_vels_x'][3]
+        self.heartbreak_speed[1] = self.obs['linear_vels_y'][3]
+        self.heartbreak_speed[2] = self.obs['ang_vels_z'][3]
+
+        self.team3_scan = list(self.obs['scans'][4])
+        self.team3_pose[0] = self.obs['poses_x'][4]
+        self.team3_pose[1] = self.obs['poses_y'][4]
+        self.team3_pose[2] = self.obs['poses_theta'][4]
+        self.team3_speed[0] = self.obs['linear_vels_x'][4]
+        self.team3_speed[1] = self.obs['linear_vels_y'][4]
+        self.team3_speed[2] = self.obs['ang_vels_z'][4]
         
         self.ego_pose[0] = self.obs['poses_x'][0]
         self.ego_pose[1] = self.obs['poses_y'][0]
@@ -380,6 +478,38 @@ class GymBridge(Node):
         auto_pursuit_odom.twist.twist.angular.z = self.auto_pursuit_speed[2]
         self.auto_pursuit_odom_pub.publish(auto_pursuit_odom)
 
+        heartbreak_odom = Odometry()
+        heartbreak_odom.header.stamp = ts
+        heartbreak_odom.header.frame_id = 'map'
+        heartbreak_odom.child_frame_id = self.heartbreak_namespace + '/base_link'
+        heartbreak_odom.pose.pose.position.x = self.heartbreak_pose[0]
+        heartbreak_odom.pose.pose.position.y = self.heartbreak_pose[1]
+        heartbreak_quat = euler.euler2quat(0., 0., self.heartbreak_pose[2], axes='sxyz')
+        heartbreak_odom.pose.pose.orientation.x = heartbreak_quat[1]
+        heartbreak_odom.pose.pose.orientation.y = heartbreak_quat[2]
+        heartbreak_odom.pose.pose.orientation.z = heartbreak_quat[3]
+        heartbreak_odom.pose.pose.orientation.w = heartbreak_quat[0]
+        heartbreak_odom.twist.twist.linear.x = self.heartbreak_speed[0]
+        heartbreak_odom.twist.twist.linear.y = self.heartbreak_speed[1]
+        heartbreak_odom.twist.twist.angular.z = self.heartbreak_speed[2]
+        self.heartbreak_odom_pub.publish(heartbreak_odom)
+
+        team3_odom = Odometry()
+        team3_odom.header.stamp = ts
+        team3_odom.header.frame_id = 'map'
+        team3_odom.child_frame_id = self.team3_namespace + '/base_link'
+        team3_odom.pose.pose.position.x = self.team3_pose[0]
+        team3_odom.pose.pose.position.y = self.team3_pose[1]
+        team3_quat = euler.euler2quat(0., 0., self.team3_pose[2], axes='sxyz')
+        team3_odom.pose.pose.orientation.x = team3_quat[1]
+        team3_odom.pose.pose.orientation.y = team3_quat[2]
+        team3_odom.pose.pose.orientation.z = team3_quat[3]
+        team3_odom.pose.pose.orientation.w = team3_quat[0]
+        team3_odom.twist.twist.linear.x = self.team3_speed[0]
+        team3_odom.twist.twist.linear.y = self.team3_speed[1]
+        team3_odom.twist.twist.angular.z = self.team3_speed[2]
+        self.team3_odom_pub.publish(team3_odom)
+
     def _publish_transforms(self, ts):
         ego_t = Transform()
         ego_t.translation.x = self.ego_pose[0]
@@ -432,6 +562,40 @@ class GymBridge(Node):
         auto_pursuit_ts.header.frame_id = 'map'
         auto_pursuit_ts.child_frame_id = self.auto_pursuit_namespace + '/base_link'
         self.br.sendTransform(auto_pursuit_ts)
+
+        heartbreak_t = Transform()
+        heartbreak_t.translation.x = self.heartbreak_pose[0]
+        heartbreak_t.translation.y = self.heartbreak_pose[1]
+        heartbreak_t.translation.z = 0.0
+        heartbreak_quat = euler.euler2quat(0.0, 0.0, self.heartbreak_pose[2], axes='sxyz')
+        heartbreak_t.rotation.x = heartbreak_quat[1]
+        heartbreak_t.rotation.y = heartbreak_quat[2]
+        heartbreak_t.rotation.z = heartbreak_quat[3]
+        heartbreak_t.rotation.w = heartbreak_quat[0]
+
+        heartbreak_ts = TransformStamped()
+        heartbreak_ts.transform = heartbreak_t
+        heartbreak_ts.header.stamp = ts
+        heartbreak_ts.header.frame_id = 'map'
+        heartbreak_ts.child_frame_id = self.heartbreak_namespace + '/base_link'
+        self.br.sendTransform(heartbreak_ts)
+
+        team3_t = Transform()
+        team3_t.translation.x = self.team3_pose[0]
+        team3_t.translation.y = self.team3_pose[1]
+        team3_t.translation.z = 0.0
+        team3_quat = euler.euler2quat(0.0, 0.0, self.team3_pose[2], axes='sxyz')
+        team3_t.rotation.x = team3_quat[1]
+        team3_t.rotation.y = team3_quat[2]
+        team3_t.rotation.z = team3_quat[3]
+        team3_t.rotation.w = team3_quat[0]
+
+        team3_ts = TransformStamped()
+        team3_ts.transform = team3_t
+        team3_ts.header.stamp = ts
+        team3_ts.header.frame_id = 'map'
+        team3_ts.child_frame_id = self.team3_namespace + '/base_link'
+        self.br.sendTransform(team3_ts)
         
 
     def _publish_wheel_transforms(self, ts):
@@ -477,6 +641,34 @@ class GymBridge(Node):
         auto_pursuit_wheel_ts.header.frame_id = self.auto_pursuit_namespace + '/front_right_hinge'
         auto_pursuit_wheel_ts.child_frame_id = self.auto_pursuit_namespace + '/front_right_wheel'
         self.br.sendTransform(auto_pursuit_wheel_ts)
+
+        heartbreak_wheel_ts = TransformStamped()
+        heartbreak_wheel_quat = euler.euler2quat(0., 0., self.heartbreak_steer, axes='sxyz')
+        heartbreak_wheel_ts.transform.rotation.x = heartbreak_wheel_quat[1]
+        heartbreak_wheel_ts.transform.rotation.y = heartbreak_wheel_quat[2]
+        heartbreak_wheel_ts.transform.rotation.z = heartbreak_wheel_quat[3]
+        heartbreak_wheel_ts.transform.rotation.w = heartbreak_wheel_quat[0]
+        heartbreak_wheel_ts.header.stamp = ts
+        heartbreak_wheel_ts.header.frame_id = self.heartbreak_namespace + '/front_left_hinge'
+        heartbreak_wheel_ts.child_frame_id = self.heartbreak_namespace + '/front_left_wheel'
+        self.br.sendTransform(heartbreak_wheel_ts)
+        heartbreak_wheel_ts.header.frame_id = self.heartbreak_namespace + '/front_right_hinge'
+        heartbreak_wheel_ts.child_frame_id = self.heartbreak_namespace + '/front_right_wheel'
+        self.br.sendTransform(heartbreak_wheel_ts)
+
+        team3_wheel_ts = TransformStamped()
+        team3_wheel_quat = euler.euler2quat(0., 0., self.team3_steer, axes='sxyz')
+        team3_wheel_ts.transform.rotation.x = team3_wheel_quat[1]
+        team3_wheel_ts.transform.rotation.y = team3_wheel_quat[2]
+        team3_wheel_ts.transform.rotation.z = team3_wheel_quat[3]
+        team3_wheel_ts.transform.rotation.w = team3_wheel_quat[0]
+        team3_wheel_ts.header.stamp = ts
+        team3_wheel_ts.header.frame_id = self.team3_namespace + '/front_left_hinge'
+        team3_wheel_ts.child_frame_id = self.team3_namespace + '/front_left_wheel'
+        self.br.sendTransform(team3_wheel_ts)
+        team3_wheel_ts.header.frame_id = self.team3_namespace + '/front_right_hinge'
+        team3_wheel_ts.child_frame_id = self.team3_namespace + '/front_right_wheel'
+        self.br.sendTransform(team3_wheel_ts)
         
     def _publish_laser_transforms(self, ts):
         ego_scan_ts = TransformStamped()
@@ -504,6 +696,22 @@ class GymBridge(Node):
         auto_pursuit_scan_ts.header.frame_id = self.auto_pursuit_namespace + '/base_link'
         auto_pursuit_scan_ts.child_frame_id = self.auto_pursuit_namespace + '/laser'
         self.br.sendTransform(auto_pursuit_scan_ts)
+
+        heartbreak_scan_ts = TransformStamped()
+        heartbreak_scan_ts.transform.translation.x = self.scan_distance_to_base_link
+        heartbreak_scan_ts.transform.rotation.w = 1.
+        heartbreak_scan_ts.header.stamp = ts
+        heartbreak_scan_ts.header.frame_id = self.heartbreak_namespace + '/base_link'
+        heartbreak_scan_ts.child_frame_id = self.heartbreak_namespace + '/laser'
+        self.br.sendTransform(heartbreak_scan_ts)
+
+        team3_scan_ts = TransformStamped()
+        team3_scan_ts.transform.translation.x = self.scan_distance_to_base_link
+        team3_scan_ts.transform.rotation.w = 1.
+        team3_scan_ts.header.stamp = ts
+        team3_scan_ts.header.frame_id = self.team3_namespace + '/base_link'
+        team3_scan_ts.child_frame_id = self.team3_namespace + '/laser'
+        self.br.sendTransform(team3_scan_ts)        
 
 def main(args=None):
     rclpy.init(args=args)

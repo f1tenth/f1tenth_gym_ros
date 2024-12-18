@@ -13,14 +13,14 @@
   <xacro:property name="laser_distance_from_base_link" value="0.275" />
   <xacro:property name="laser_height" value="0.05" />
   <xacro:property name="laser_radius" value="0.026" />
-  <xacro:property name="car_name" value="opp_racecar" />
+  <xacro:property name="car_name" value="team3_racecar" />
 
   <material name="black">
     <color rgba="0.2 0.2 0.2 1."/>
   </material>
 
-  <material name="orange">
-    <color rgba="1. 0.57 0.1 1."/>
+  <material name="purple">
+    <color rgba="0.5 0.0 0.5 1."/>
   </material>
 
   <link name="${car_name}/base_link">
@@ -29,7 +29,7 @@
       <geometry>
         <box size="${wheelbase} ${width} ${height}"/>
       </geometry>
-      <material name="orange"/>
+      <material name="purple"/>
     </visual>
   </link>
 
