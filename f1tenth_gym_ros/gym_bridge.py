@@ -68,10 +68,10 @@ class GymBridge(Node):
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
-        if num_agents < 1 or num_agents > 2:
-            raise ValueError('num_agents should be either 1 or 2.')
-        elif type(num_agents) != int:
-            raise ValueError('num_agents should be an int.')
+        # if num_agents < 1 or num_agents > 2:
+        #     raise ValueError('num_agents should be either 1 or 2.')
+        # elif type(num_agents) != int:
+        #     raise ValueError('num_agents should be an int.')
 
         # env backend
         self.env = gym.make('f110_gym:f110-v0',
@@ -98,31 +98,41 @@ class GymBridge(Node):
         ego_odom_topic = self.ego_namespace + '/' + self.get_parameter('ego_odom_topic').value
         self.scan_distance_to_base_link = self.get_parameter('scan_distance_to_base_link').value
         
-        if num_agents == 2:
-            self.has_opp = True
-            self.opp_namespace = self.get_parameter('opp_namespace').value
-            sx1 = self.get_parameter('sx1').value
-            sy1 = self.get_parameter('sy1').value
-            stheta1 = self.get_parameter('stheta1').value
-            self.opp_pose = [sx1, sy1, stheta1]
-            self.opp_speed = [0.0, 0.0, 0.0]
-            self.opp_requested_speed = 0.0
-            self.opp_steer = 0.0
-            self.opp_collision = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1]]))
-            self.ego_scan = list(self.obs['scans'][0])
-            self.opp_scan = list(self.obs['scans'][1])
+        self.has_opp = True
+        self.opp_namespace = self.get_parameter('opp_namespace').value
+        sx1 = self.get_parameter('sx1').value
+        sy1 = self.get_parameter('sy1').value
+        stheta1 = self.get_parameter('stheta1').value
+        self.opp_pose = [sx1, sy1, stheta1]
+        self.opp_speed = [0.0, 0.0, 0.0]
+        self.opp_requested_speed = 0.0
+        self.opp_steer = 0.0
+        self.opp_collision = False
 
-            opp_scan_topic = self.get_parameter('opp_scan_topic').value
-            opp_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_odom_topic').value
-            opp_drive_topic = self.get_parameter('opp_drive_topic').value
+        opp_scan_topic = self.get_parameter('opp_scan_topic').value
+        opp_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_odom_topic').value
+        opp_drive_topic = self.get_parameter('opp_drive_topic').value
 
-            ego_opp_odom_topic = self.ego_namespace + '/' + self.get_parameter('ego_opp_odom_topic').value
-            opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
-        else:
-            self.has_opp = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta]]))
-            self.ego_scan = list(self.obs['scans'][0])
+        ego_opp_odom_topic = self.ego_namespace + '/' + self.get_parameter('ego_opp_odom_topic').value
+        opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
+
+        self.auto_pursuit_namespace = 'auto_pursuit_racecar'
+        sx_auto_pursuit = 4.0
+        sy_auto_pursuit = 1.0
+        stheta_auto_pursuit = 0.0
+        self.auto_pursuit_pose = [sx1, sy1, stheta1]
+        self.auto_pursuit_speed = [0.0, 0.0, 0.0]
+        self.auto_pursuit_requested_speed = 0.0
+        self.auto_pursuit_steer = 0.0
+        self.auto_pursuit_collision = False
+        self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1], [sx_auto_pursuit, sy_auto_pursuit, stheta_auto_pursuit]]))
+        self.ego_scan = list(self.obs['scans'][0])
+        self.opp_scan = list(self.obs['scans'][1])
+        self.auto_pursuit_scan = list(self.obs['scans'][2])
+
+        auto_pursuit_scan_topic = 'auto_pursuit_scan'
+        auto_pursuit_odom_topic = self.auto_pursuit_namespace + '/' + 'odom'
+        auto_pursuit_drive_topic = 'auto_pursuit_drive'
 
         # sim physical step timer
         self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
@@ -136,12 +146,19 @@ class GymBridge(Node):
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
         self.ego_drive_published = False
-        if num_agents == 2:
-            self.opp_scan_pub = self.create_publisher(LaserScan, opp_scan_topic, 10)
-            self.ego_opp_odom_pub = self.create_publisher(Odometry, ego_opp_odom_topic, 10)
-            self.opp_odom_pub = self.create_publisher(Odometry, opp_odom_topic, 10)
-            self.opp_ego_odom_pub = self.create_publisher(Odometry, opp_ego_odom_topic, 10)
-            self.opp_drive_published = False
+
+        # if num_agents == 2:
+
+        self.opp_scan_pub = self.create_publisher(LaserScan, opp_scan_topic, 10)
+        self.ego_opp_odom_pub = self.create_publisher(Odometry, ego_opp_odom_topic, 10)
+        self.opp_odom_pub = self.create_publisher(Odometry, opp_odom_topic, 10)
+        self.opp_ego_odom_pub = self.create_publisher(Odometry, opp_ego_odom_topic, 10)
+        self.opp_drive_published = False
+
+        self.auto_pursuit_scan_pub = self.create_publisher(LaserScan, auto_pursuit_scan_topic, 10)
+        self.auto_pursuit_odom_pub = self.create_publisher(Odometry, auto_pursuit_odom_topic, 10)
+        self.auto_pursuit_drive_published = False
+
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
@@ -154,17 +171,23 @@ class GymBridge(Node):
             '/initialpose',
             self.ego_reset_callback,
             10)
-        if num_agents == 2:
-            self.opp_drive_sub = self.create_subscription(
-                AckermannDriveStamped,
-                opp_drive_topic,
-                self.opp_drive_callback,
-                10)
-            self.opp_reset_sub = self.create_subscription(
-                PoseStamped,
-                '/goal_pose',
-                self.opp_reset_callback,
-                10)
+        
+        self.opp_drive_sub = self.create_subscription(
+            AckermannDriveStamped,
+            opp_drive_topic,
+            self.opp_drive_callback,
+            10)
+        self.opp_reset_sub = self.create_subscription(
+            PoseStamped,
+            '/goal_pose',
+            self.opp_reset_callback,
+            10)
+        
+        self.auto_pursuit_drive_sub = self.create_subscription(
+            AckermannDriveStamped,
+            auto_pursuit_drive_topic,
+            self.auto_pursuit_drive_callback,
+            10)
 
         if self.get_parameter('kb_teleop').value:
             self.teleop_sub = self.create_subscription(
@@ -183,6 +206,11 @@ class GymBridge(Node):
         self.opp_requested_speed = drive_msg.drive.speed
         self.opp_steer = drive_msg.drive.steering_angle
         self.opp_drive_published = True
+
+    def auto_pursuit_drive_callback(self, drive_msg):
+        self.auto_pursuit_requested_speed = drive_msg.drive.speed
+        self.auto_pursuit_steer = drive_msg.drive.steering_angle
+        self.auto_pursuit_drive_published = True
 
     def ego_reset_callback(self, pose_msg):
         rx = pose_msg.pose.pose.position.x
@@ -224,8 +252,8 @@ class GymBridge(Node):
     def drive_timer_callback(self):
         if self.ego_drive_published and not self.has_opp:
             self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
-        elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
+        elif self.ego_drive_published and self.has_opp and self.opp_drive_published and self.auto_pursuit_drive_published:
+            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed], [self.auto_pursuit_steer, self.auto_pursuit_requested_speed]]))
         self._update_sim_state()
 
     def timer_callback(self):
@@ -255,6 +283,17 @@ class GymBridge(Node):
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
 
+        auto_pursuit_scan = LaserScan()
+        auto_pursuit_scan.header.stamp = ts
+        auto_pursuit_scan.header.frame_id = self.auto_pursuit_namespace + '/laser'
+        auto_pursuit_scan.angle_min = self.angle_min
+        auto_pursuit_scan.angle_max = self.angle_max
+        auto_pursuit_scan.angle_increment = self.angle_inc
+        auto_pursuit_scan.range_min = 0.
+        auto_pursuit_scan.range_max = 30.
+        auto_pursuit_scan.ranges = self.auto_pursuit_scan
+        self.auto_pursuit_scan_pub.publish(auto_pursuit_scan)
+
         # pub tf
         self._publish_odom(ts)
         self._publish_transforms(ts)
@@ -271,7 +310,15 @@ class GymBridge(Node):
             self.opp_speed[0] = self.obs['linear_vels_x'][1]
             self.opp_speed[1] = self.obs['linear_vels_y'][1]
             self.opp_speed[2] = self.obs['ang_vels_z'][1]
-
+        
+        self.auto_pursuit_scan = list(self.obs['scans'][2])
+        self.auto_pursuit_pose[0] = self.obs['poses_x'][2]
+        self.auto_pursuit_pose[1] = self.obs['poses_y'][2]
+        self.auto_pursuit_pose[2] = self.obs['poses_theta'][2]
+        self.auto_pursuit_speed[0] = self.obs['linear_vels_x'][2]
+        self.auto_pursuit_speed[1] = self.obs['linear_vels_y'][2]
+        self.auto_pursuit_speed[2] = self.obs['ang_vels_z'][2]
+        
         self.ego_pose[0] = self.obs['poses_x'][0]
         self.ego_pose[1] = self.obs['poses_y'][0]
         self.ego_pose[2] = self.obs['poses_theta'][0]
@@ -317,6 +364,22 @@ class GymBridge(Node):
             self.opp_ego_odom_pub.publish(ego_odom)
             self.ego_opp_odom_pub.publish(opp_odom)
 
+        auto_pursuit_odom = Odometry()
+        auto_pursuit_odom.header.stamp = ts
+        auto_pursuit_odom.header.frame_id = 'map'
+        auto_pursuit_odom.child_frame_id = self.auto_pursuit_namespace + '/base_link'
+        auto_pursuit_odom.pose.pose.position.x = self.auto_pursuit_pose[0]
+        auto_pursuit_odom.pose.pose.position.y = self.auto_pursuit_pose[1]
+        auto_pursuit_quat = euler.euler2quat(0., 0., self.auto_pursuit_pose[2], axes='sxyz')
+        auto_pursuit_odom.pose.pose.orientation.x = auto_pursuit_quat[1]
+        auto_pursuit_odom.pose.pose.orientation.y = auto_pursuit_quat[2]
+        auto_pursuit_odom.pose.pose.orientation.z = auto_pursuit_quat[3]
+        auto_pursuit_odom.pose.pose.orientation.w = auto_pursuit_quat[0]
+        auto_pursuit_odom.twist.twist.linear.x = self.auto_pursuit_speed[0]
+        auto_pursuit_odom.twist.twist.linear.y = self.auto_pursuit_speed[1]
+        auto_pursuit_odom.twist.twist.angular.z = self.auto_pursuit_speed[2]
+        self.auto_pursuit_odom_pub.publish(auto_pursuit_odom)
+
     def _publish_transforms(self, ts):
         ego_t = Transform()
         ego_t.translation.x = self.ego_pose[0]
@@ -352,6 +415,24 @@ class GymBridge(Node):
             opp_ts.header.frame_id = 'map'
             opp_ts.child_frame_id = self.opp_namespace + '/base_link'
             self.br.sendTransform(opp_ts)
+            
+        auto_pursuit_t = Transform()
+        auto_pursuit_t.translation.x = self.auto_pursuit_pose[0]
+        auto_pursuit_t.translation.y = self.auto_pursuit_pose[1]
+        auto_pursuit_t.translation.z = 0.0
+        auto_pursuit_quat = euler.euler2quat(0.0, 0.0, self.auto_pursuit_pose[2], axes='sxyz')
+        auto_pursuit_t.rotation.x = auto_pursuit_quat[1]
+        auto_pursuit_t.rotation.y = auto_pursuit_quat[2]
+        auto_pursuit_t.rotation.z = auto_pursuit_quat[3]
+        auto_pursuit_t.rotation.w = auto_pursuit_quat[0]
+
+        auto_pursuit_ts = TransformStamped()
+        auto_pursuit_ts.transform = auto_pursuit_t
+        auto_pursuit_ts.header.stamp = ts
+        auto_pursuit_ts.header.frame_id = 'map'
+        auto_pursuit_ts.child_frame_id = self.auto_pursuit_namespace + '/base_link'
+        self.br.sendTransform(auto_pursuit_ts)
+        
 
     def _publish_wheel_transforms(self, ts):
         ego_wheel_ts = TransformStamped()
@@ -383,6 +464,20 @@ class GymBridge(Node):
             opp_wheel_ts.child_frame_id = self.opp_namespace + '/front_right_wheel'
             self.br.sendTransform(opp_wheel_ts)
 
+        auto_pursuit_wheel_ts = TransformStamped()
+        auto_pursuit_wheel_quat = euler.euler2quat(0., 0., self.auto_pursuit_steer, axes='sxyz')
+        auto_pursuit_wheel_ts.transform.rotation.x = auto_pursuit_wheel_quat[1]
+        auto_pursuit_wheel_ts.transform.rotation.y = auto_pursuit_wheel_quat[2]
+        auto_pursuit_wheel_ts.transform.rotation.z = auto_pursuit_wheel_quat[3]
+        auto_pursuit_wheel_ts.transform.rotation.w = auto_pursuit_wheel_quat[0]
+        auto_pursuit_wheel_ts.header.stamp = ts
+        auto_pursuit_wheel_ts.header.frame_id = self.auto_pursuit_namespace + '/front_left_hinge'
+        auto_pursuit_wheel_ts.child_frame_id = self.auto_pursuit_namespace + '/front_left_wheel'
+        self.br.sendTransform(auto_pursuit_wheel_ts)
+        auto_pursuit_wheel_ts.header.frame_id = self.auto_pursuit_namespace + '/front_right_hinge'
+        auto_pursuit_wheel_ts.child_frame_id = self.auto_pursuit_namespace + '/front_right_wheel'
+        self.br.sendTransform(auto_pursuit_wheel_ts)
+        
     def _publish_laser_transforms(self, ts):
         ego_scan_ts = TransformStamped()
         ego_scan_ts.transform.translation.x = self.scan_distance_to_base_link
@@ -401,6 +496,14 @@ class GymBridge(Node):
             opp_scan_ts.header.frame_id = self.opp_namespace + '/base_link'
             opp_scan_ts.child_frame_id = self.opp_namespace + '/laser'
             self.br.sendTransform(opp_scan_ts)
+
+        auto_pursuit_scan_ts = TransformStamped()
+        auto_pursuit_scan_ts.transform.translation.x = self.scan_distance_to_base_link
+        auto_pursuit_scan_ts.transform.rotation.w = 1.
+        auto_pursuit_scan_ts.header.stamp = ts
+        auto_pursuit_scan_ts.header.frame_id = self.auto_pursuit_namespace + '/base_link'
+        auto_pursuit_scan_ts.child_frame_id = self.auto_pursuit_namespace + '/laser'
+        self.br.sendTransform(auto_pursuit_scan_ts)
 
 def main(args=None):
     rclpy.init(args=args)
