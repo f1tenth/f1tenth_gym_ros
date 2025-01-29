@@ -42,11 +42,11 @@ bridge:
     scan_beams: 1080
 
     # map parameters
-    map_path: 'levine'
+    map_path: '/home/nvidia/ros_ws/src/f1-fifth/src/f1tenth_gym_ros/maps/Spielberg_blank_map'
     map_img_ext: '.png'
 
     # car parameters and scale
-    vehicle_params: 'f1tenth'
+    vehicle_params: 'f1fifth'
     scale: 1.0
 
     # opponent parameters
