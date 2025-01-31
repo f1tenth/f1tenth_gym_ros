@@ -42,8 +42,12 @@ bridge:
     scan_beams: 1080
 
     # map parameters
-    map_path: '/sim_ws/src/f1tenth_gym_ros/maps/levine'
+    map_path: 'levine'
     map_img_ext: '.png'
+
+    # car parameters and scale
+    vehicle_params: 'f1tenth'
+    scale: 1.0
 
     # opponent parameters
     num_agent: 1

@@ -34,9 +34,12 @@ from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
 
-import gym
+import gymnasium as gym
 import numpy as np
 from transforms3d import euler
+
+import pathlib
+from f1tenth_gym.envs.f110_env import F110Env, Track
 
 class GymBridge(Node):
     def __init__(self):
@@ -65,6 +68,8 @@ class GymBridge(Node):
         self.declare_parameter('sy1')
         self.declare_parameter('stheta1')
         self.declare_parameter('kb_teleop')
+        self.declare_parameter('scale')
+        self.declare_parameter('vehicle_params')
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
@@ -73,11 +78,45 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
+        vehicle_params = None
+        if self.get_parameter('vehicle_params').value == 'f1tenth':
+            vehicle_params = F110Env.f1tenth_vehicle_params()
+        elif self.get_parameter('vehicle_params').value == 'fullscale':
+            vehicle_params = F110Env.fullscale_vehicle_params()
+        elif self.get_parameter('vehicle_params').value == 'f1fifth':
+            vehicle_params = F110Env.f1fifth_vehicle_params()
+        else:
+            raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
+
+        scale = self.get_parameter('scale').value
+
+        # Split the path and the name
+        path = self.get_parameter('map_path').value
+        name = path.split('/')[-1].split('.')[0]
+        path = path + '.yaml'
+        self.get_logger().info('Loading map: %s from path: %s' % (name, path))
+
+        # Load the yaml file
+        path = pathlib.Path(path)
+        loaded_map = Track.from_track_path(path, scale)
+
         # env backend
-        self.env = gym.make('f110_gym:f110-v0',
-                            map=self.get_parameter('map_path').value,
-                            map_ext=self.get_parameter('map_img_ext').value,
-                            num_agents=num_agents)
+        self.env = gym.make(
+                            "f1tenth_gym:f1tenth-v0",
+                            config={
+                                "map": loaded_map,
+                                "num_agents": num_agents,
+                                "timestep": 0.01,
+                                "integrator": "rk4",
+                                "control_input": ["speed", "steering_angle"],
+                                "model": "st",
+                                "observation_config": {"type": "original"},
+                                "params": vehicle_params,
+                                "reset_config": {"type": "map_random_static"},
+                                "scale": scale,
+                            },
+                            render_mode="rgb_array",
+                        )
 
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
@@ -109,7 +148,7 @@ class GymBridge(Node):
             self.opp_requested_speed = 0.0
             self.opp_steer = 0.0
             self.opp_collision = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1]]))
+            self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta], [sx1, sy1, stheta1]])})
             self.ego_scan = list(self.obs['scans'][0])
             self.opp_scan = list(self.obs['scans'][1])
 
@@ -121,7 +160,7 @@ class GymBridge(Node):
             opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
         else:
             self.has_opp = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta]]))
+            self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta]])})
             self.ego_scan = list(self.obs['scans'][0])
 
         # sim physical step timer
@@ -194,9 +233,9 @@ class GymBridge(Node):
         _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
         if self.has_opp:
             opp_pose = [self.obs['poses_x'][1], self.obs['poses_y'][1], self.obs['poses_theta'][1]]
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta], opp_pose]))
+            self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta], opp_pose])})
         else:
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta]]))
+            self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta]])})
 
     def opp_reset_callback(self, pose_msg):
         if self.has_opp:
@@ -207,7 +246,7 @@ class GymBridge(Node):
             rqz = pose_msg.pose.orientation.z
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
-            self.obs, _ , self.done, _ = self.env.reset(np.array([list(self.ego_pose), [rx, ry, rtheta]]))
+            self.obs, _ = self.env.reset(options={"poses": np.array([(self.ego_pose), [rx, ry, rtheta]])})
     def teleop_callback(self, twist_msg):
         if not self.ego_drive_published:
             self.ego_drive_published = True
@@ -223,9 +262,9 @@ class GymBridge(Node):
 
     def drive_timer_callback(self):
         if self.ego_drive_published and not self.has_opp:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
+            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
         elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
-            self.obs, _, self.done, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
+            self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
         self._update_sim_state()
 
     def timer_callback(self):
@@ -240,6 +279,8 @@ class GymBridge(Node):
         scan.angle_increment = self.angle_inc
         scan.range_min = 0.
         scan.range_max = 30.
+        # convert each element to float from numpy.float32
+        self.ego_scan = [float(x) for x in self.ego_scan]
         scan.ranges = self.ego_scan
         self.ego_scan_pub.publish(scan)
 
@@ -252,6 +293,7 @@ class GymBridge(Node):
             opp_scan.angle_increment = self.angle_inc
             opp_scan.range_min = 0.
             opp_scan.range_max = 30.
+            self.opp_scan = [float(x) for x in self.opp_scan]
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
 
@@ -265,19 +307,19 @@ class GymBridge(Node):
         self.ego_scan = list(self.obs['scans'][0])
         if self.has_opp:
             self.opp_scan = list(self.obs['scans'][1])
-            self.opp_pose[0] = self.obs['poses_x'][1]
-            self.opp_pose[1] = self.obs['poses_y'][1]
-            self.opp_pose[2] = self.obs['poses_theta'][1]
-            self.opp_speed[0] = self.obs['linear_vels_x'][1]
-            self.opp_speed[1] = self.obs['linear_vels_y'][1]
-            self.opp_speed[2] = self.obs['ang_vels_z'][1]
+            self.opp_pose[0]  = float(self.obs['poses_x'][1])
+            self.opp_pose[1]  = float(self.obs['poses_y'][1])
+            self.opp_pose[2]  = float(self.obs['poses_theta'][1])
+            self.opp_speed[0] = float(self.obs['linear_vels_x'][1])
+            self.opp_speed[1] = float(self.obs['linear_vels_y'][1])
+            self.opp_speed[2] = float(self.obs['ang_vels_z'][1])
 
-        self.ego_pose[0] = self.obs['poses_x'][0]
-        self.ego_pose[1] = self.obs['poses_y'][0]
-        self.ego_pose[2] = self.obs['poses_theta'][0]
-        self.ego_speed[0] = self.obs['linear_vels_x'][0]
-        self.ego_speed[1] = self.obs['linear_vels_y'][0]
-        self.ego_speed[2] = self.obs['ang_vels_z'][0]
+        self.ego_pose[0] =  float(self.obs['poses_x'][0])
+        self.ego_pose[1] =  float(self.obs['poses_y'][0])
+        self.ego_pose[2] =  float(self.obs['poses_theta'][0])
+        self.ego_speed[0] = float(self.obs['linear_vels_x'][0])
+        self.ego_speed[1] = float(self.obs['linear_vels_y'][0])
+        self.ego_speed[2] = float(self.obs['ang_vels_z'][0])
 
         
 
