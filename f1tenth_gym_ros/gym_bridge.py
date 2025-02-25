@@ -78,13 +78,13 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
-        vehicle_params = None
+        self.vehicle_params = None
         if self.get_parameter('vehicle_params').value == 'f1tenth':
-            vehicle_params = F110Env.f1tenth_vehicle_params()
+            self.vehicle_params = F110Env.f1tenth_vehicle_params()
         elif self.get_parameter('vehicle_params').value == 'fullscale':
-            vehicle_params = F110Env.fullscale_vehicle_params()
+            self.vehicle_params = F110Env.fullscale_vehicle_params()
         elif self.get_parameter('vehicle_params').value == 'f1fifth':
-            vehicle_params = F110Env.f1fifth_vehicle_params()
+            self.vehicle_params = F110Env.f1fifth_vehicle_params()
         else:
             raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
 
@@ -111,7 +111,7 @@ class GymBridge(Node):
                                 "control_input": ["speed", "steering_angle"],
                                 "model": "st",
                                 "observation_config": {"type": "original"},
-                                "params": vehicle_params,
+                                "params": self.vehicle_params,
                                 "reset_config": {"type": "map_random_static"},
                                 "scale": scale,
                             },
@@ -215,7 +215,7 @@ class GymBridge(Node):
 
     def drive_callback(self, drive_msg):
         self.ego_requested_speed = drive_msg.drive.speed
-        self.ego_steer = drive_msg.drive.steering_angle
+        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
         self.ego_drive_published = True
 
     def opp_drive_callback(self, drive_msg):
