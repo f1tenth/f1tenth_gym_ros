@@ -11,33 +11,135 @@ This is a containerized ROS communication bridge for the F1TENTH gym environment
 
 This installation guide will be split into instruction for installing the ROS 2 package natively, and for systems with or without an NVIDIA gpu in Docker containers.
 
-## Native on Ubuntu 20.04
+---
 
-**Install the following dependencies:**
-- **ROS 2** Follow the instructions [here](https://docs.ros.org/en/foxy/Installation.html) to install ROS 2 Foxy.
-- **F1TENTH Gym**
-  ```bash
-  git clone https://github.com/f1tenth/f1tenth_gym
-  cd f1tenth_gym && pip3 install -e .
-  ```
+##   Updated Instructions for **Ubuntu 22.04 + ROS 2 Humble + Virtualenv**
 
-**Installing the simulation:**
-- Create a workspace: ```cd $HOME && mkdir -p sim_ws/src```
-- Clone the repo into the workspace:
-  ```bash
-  cd $HOME/sim_ws/src
-  git clone https://github.com/f1tenth/f1tenth_gym_ros
-  ```
-- Update correct parameter for path to map file:
-  Go to `sim.yaml` [https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml](https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml) in your cloned repo, change the `map_path` parameter to point to the correct location. It should be `'<your_home_dir>/sim_ws/src/f1tenth_gym_ros/maps/levine'`
-- Install dependencies with rosdep:
-  ```bash
-  source /opt/ros/foxy/setup.bash
-  cd ..
-  rosdep install -i --from-path src --rosdistro foxy -y
-  ```
-- Build the workspace: ```colcon build```
+---
 
+### ## Native on Ubuntu 22.04 + ROS 2 Humble
+
+---
+
+###  **1. Install ROS 2 Humble**
+
+Follow the official instructions here:  
+📎 https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html
+
+And then run:
+
+```bash
+source /opt/ros/humble/setup.bash
+```
+
+---
+
+###  **2. Set up Python 3.10 Virtual Environment (RECOMMENDED)**
+
+We’ll isolate the simulator dependencies to avoid version conflicts:
+
+```bash
+sudo apt install python3.10-venv
+python3.10 -m venv ~/f1tenth_env
+source ~/f1tenth_env/bin/activate
+pip install --upgrade pip setuptools
+```
+
+---
+
+###  **3. Clone and Patch F1TENTH Gym (gym==0.19.0 compatibility)**
+
+```bash
+# Clone OpenAI Gym manually and patch
+cd ~
+git clone https://github.com/openai/gym.git
+cd gym
+git checkout 0.19.0
+
+#  PATCH setup.py:
+# - Remove `tests_require=["pytest", "mock"]`
+# - Fix invalid extras like `opencv-python>=3.` → change to `opencv-python>=3.0.0`
+
+pip install -e .
+```
+
+Then install other dependencies:
+
+```bash
+pip install numpy==1.23.5 box2d-py transforms3d pyglet==1.4.11 scipy==1.11.4
+```
+
+---
+
+###  **4. Install F1TENTH Gym**
+
+```bash
+cd ~
+git clone https://github.com/f1tenth/f1tenth_gym.git
+pip install -e ./f1tenth_gym
+```
+
+---
+
+###  **5. Create a workspace and clone `f1tenth_gym_ros`**
+
+```bash
+mkdir -p ~/f1ws/src
+cd ~/f1ws/src
+git clone https://github.com/siddarth09/f1tenth_gym_ros_humble.git
+cd ~/f1ws
+```
+
+---
+
+###  **6. Update `sim.yaml`**
+
+Edit the following line in `config/sim.yaml`:
+
+```yaml
+map_path: '~/f1ws/src/f1tenth_gym_ros_humble/maps/levine'
+```
+
+Replace `~` with your actual path:
+
+```yaml
+map_path: '/home/<your-username>/f1ws/src/f1tenth_gym_ros_humble/maps/levine'
+```
+
+ This ensures the simulator loads the correct map.
+
+---
+ **7. Install ROS 2 dependencies**
+
+```bash
+source /opt/ros/humble/setup.bash
+cd ~/f1ws
+rosdep install -i --from-path src --rosdistro humble -y
+```
+
+---
+
+###  **8. Build the workspace**
+
+```bash
+colcon build
+source install/setup.bash
+```
+
+---
+
+### ▶ **9. Launch the simulator**
+
+```bash
+source ~/f1tenth_env/bin/activate
+source /opt/ros/humble/setup.bash
+source ~/f1ws/install/setup.bash
+ros2 launch f1tenth_gym_ros simulator_launch.py
+```
+
+ You should see the simulated car and LiDAR data publishing!
+
+---
 ## With an NVIDIA gpu:
 
 **Install the following dependencies:**
