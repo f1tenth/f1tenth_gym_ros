@@ -42,29 +42,36 @@ class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
 
-        self.declare_parameter('ego_namespace')
-        self.declare_parameter('ego_odom_topic')
-        self.declare_parameter('ego_opp_odom_topic')
-        self.declare_parameter('ego_scan_topic')
-        self.declare_parameter('ego_drive_topic')
-        self.declare_parameter('opp_namespace')
-        self.declare_parameter('opp_odom_topic')
-        self.declare_parameter('opp_ego_odom_topic')
-        self.declare_parameter('opp_scan_topic')
-        self.declare_parameter('opp_drive_topic')
-        self.declare_parameter('scan_distance_to_base_link')
-        self.declare_parameter('scan_fov')
-        self.declare_parameter('scan_beams')
-        self.declare_parameter('map_path')
-        self.declare_parameter('map_img_ext')
-        self.declare_parameter('num_agent')
-        self.declare_parameter('sx')
-        self.declare_parameter('sy')
-        self.declare_parameter('stheta')
-        self.declare_parameter('sx1')
-        self.declare_parameter('sy1')
-        self.declare_parameter('stheta1')
-        self.declare_parameter('kb_teleop')
+        self.declare_parameter('ego_namespace', 'ego_racecar')
+        self.declare_parameter('ego_odom_topic', 'odom')
+        self.declare_parameter('ego_opp_odom_topic', 'opp_odom')
+        self.declare_parameter('ego_scan_topic', 'scan')
+        self.declare_parameter('ego_drive_topic', 'drive')
+        self.declare_parameter('opp_namespace', 'opp_racecar')
+        self.declare_parameter('opp_odom_topic', 'odom')
+        self.declare_parameter('opp_ego_odom_topic', 'opp_odom')
+        self.declare_parameter('opp_scan_topic', 'opp_scan')
+        self.declare_parameter('opp_drive_topic', 'opp_drive')
+
+        self.declare_parameter('scan_distance_to_base_link', 0.0)
+        self.declare_parameter('scan_fov', 4.7)
+        self.declare_parameter('scan_beams', 1080)
+
+        self.declare_parameter('map_path', '~/f1ws/src/f1tenth_gym_ros/maps/levine')
+        self.declare_parameter('map_img_ext', '.png')
+
+        self.declare_parameter('num_agent', 1)
+
+        self.declare_parameter('sx', 0.0)
+        self.declare_parameter('sy', 0.0)
+        self.declare_parameter('stheta', 0.0)
+
+        self.declare_parameter('sx1', 2.0)
+        self.declare_parameter('sy1', 0.5)
+        self.declare_parameter('stheta1', 0.0)
+
+        self.declare_parameter('kb_teleop', True)
+
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
