@@ -1,17 +1,14 @@
-# FOLLOW THIS SETUP 
+# F1 TENTH SIMULATOR SETUP ROS2 HUMBLE
 
 ```markdown
-# 🏎️ F1TENTH Gym ROS2 Simulator (Humble + Virtualenv Setup)
+# F1TENTH Gym ROS 2 Simulator (Humble + Virtualenv Setup)
 
-This repo provides a ROS2 (Humble) wrapper around the F1TENTH Gym simulator.  
-It connects an OpenAI Gym environment to ROS2 nodes for building and testing F1TENTH autonomous controllers.
+This repository provides a ROS 2 (Humble) wrapper around the F1TENTH Gym simulator.  
+It connects an OpenAI Gym environment to ROS 2 nodes for developing and testing F1TENTH autonomous driving controllers.
 
----
+## Installation Instructions (Ubuntu 22.04)
 
-## 📋 Installation Instructions (Ubuntu 22.04)
-
----
-### 2️⃣ Setup Python Virtual Environment (Recommended)
+### 1. Setup Python Virtual Environment (Recommended)
 
 Create a Python 3.10 virtual environment to avoid dependency conflicts:
 
@@ -23,11 +20,11 @@ source ~/f1tenth_env/bin/activate
 pip install --upgrade pip setuptools
 ```
 
-✅ You will work inside this `f1tenth_env` when running the simulator.
+You will work inside this `f1tenth_env` virtual environment when running the simulator.
 
 ---
 
-### 3️⃣ Install and Patch OpenAI Gym (0.19.0)
+### 2. Install and Patch OpenAI Gym (Version 0.19.0)
 
 Clone and patch OpenAI Gym manually:
 
@@ -39,8 +36,8 @@ git checkout 0.19.0
 ```
 
 Edit `setup.py`:
-- Remove `tests_require=["pytest", "mock"]`
-- Fix any invalid extras (e.g., change `opencv-python>=3.` to `opencv-python>=3.0.0`)
+- Remove the line `tests_require=["pytest", "mock"]`.
+- Fix any invalid extras (for example, change `opencv-python>=3.` to `opencv-python>=3.0.0`).
 
 Then install:
 
@@ -50,18 +47,25 @@ pip install -e .
 
 ---
 
-### 4️⃣ Install Other Python Dependencies
+### 3. Install Additional Python Dependencies
+
+Install system-wide SWIG (required for building Box2D bindings):
 
 ```bash
 sudo apt install swig
+```
+
+Then install Python dependencies:
+
+```bash
 pip install numpy==1.23.5 box2d-py transforms3d pyglet==1.4.11 scipy==1.11.4
 ```
 
-✅ `box2d-py` needs SWIG installed system-wide.
-
 ---
 
-### 5️⃣ Install F1Tenth Gym
+### 4. Install F1Tenth Gym
+
+Clone and install the F1Tenth Gym environment:
 
 ```bash
 cd ~
@@ -69,13 +73,11 @@ git clone https://github.com/f1tenth/f1tenth_gym.git
 pip install -e ./f1tenth_gym
 ```
 
-✅ This installs the actual F1Tenth Gym simulator into your venv.
-
 ---
 
-### 6️⃣ Setup ROS 2 Workspace
+### 5. Setup ROS 2 Workspace
 
-Create a workspace:
+Create the workspace:
 
 ```bash
 mkdir -p ~/f1ws/src
@@ -85,27 +87,23 @@ git clone https://github.com/siddarth09/f1tenth_gym_ros_humble.git
 
 ---
 
-### 7️⃣ Fix Map Path in sim.yaml
+### 6. Update Map Path in sim.yaml
 
-Edit `config/sim.yaml` inside your repo:
+Edit the file `config/sim.yaml` inside your cloned repository:
 
-Change:
-
-```yaml
-map_path: '~/f1ws/src/f1tenth_gym_ros_humble/maps/levine'
-```
-
-to:
+Change the `map_path` parameter:
 
 ```yaml
 map_path: '/home/your-username/f1ws/src/f1tenth_gym_ros_humble/maps/levine'
 ```
 
-(Replace `your-username` with your Linux username.)
+Replace `your-username` with your actual Linux username.
 
 ---
 
-### 8️⃣ Install ROS 2 Dependencies
+### 7. Install ROS 2 Dependencies
+
+Install any missing system dependencies using rosdep:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -116,7 +114,9 @@ rosdep install -i --from-path src --rosdistro humble -y
 
 ---
 
-### 9️⃣ Build the Workspace
+### 8. Build the Workspace
+
+Build the ROS 2 workspace:
 
 ```bash
 cd ~/f1ws
@@ -124,57 +124,55 @@ colcon build
 source install/setup.bash
 ```
 
-✅ This builds your gym bridge and ROS2 nodes.
-
 ---
 
-## 🚀 Running the Simulator
+## Running the Simulator
 
-Every time you want to run the simulator, follow this order:
+Each time you want to run the simulator, follow these steps in a new terminal:
 
 ```bash
-# 1. Activate your virtualenv
+# Activate virtual environment
 source ~/f1tenth_env/bin/activate
 
-# 2. Source ROS 2
+# Source ROS 2 setup
 source /opt/ros/humble/setup.bash
 
-# 3. Source your workspace
+# Source workspace setup
 source ~/f1ws/install/setup.bash
 
-# 4. Launch the simulator
-ros2 launch f1tenth_gym_ros simulator_launch.py
+# Launch the simulator
+ros2 launch f1tenth_gym_ros gym_bridge_launch.py 
 ```
 
-✅ You should now see your car in the simulation and LaserScan + Odometry publishing!
+You should now see your simulated F1TENTH vehicle with LaserScan and Odometry topics publishing.
 
 ---
 
-## 🛠️ Troubleshooting Tips
+## Troubleshooting Tips
 
-- Make sure you're always inside the `f1tenth_env` virtual environment when running `gym_bridge`.
-- If you get `ModuleNotFoundError: gym`, it means your virtualenv was not activated.
-- If you get `np.float` attribute errors, downgrade numpy to 1.23.5.
+- Always ensure you have activated your `f1tenth_env` virtual environment when running any simulator or bridge node.
+- If you encounter `ModuleNotFoundError: gym`, it means the virtual environment was not activated.
+- If you encounter errors related to `np.float`, ensure that numpy is downgraded to version 1.23.5.
+- If `box2d-py` fails to build, ensure SWIG is properly installed (`sudo apt install swig`).
 
 ---
 
-## 📚 Useful Commands
+## Useful Commands Summary
 
 | Task | Command |
 |:-----|:--------|
 | Activate Virtualenv | `source ~/f1tenth_env/bin/activate` |
-| Source ROS2 | `source /opt/ros/humble/setup.bash` |
+| Source ROS 2 Environment | `source /opt/ros/humble/setup.bash` |
 | Source Workspace | `source ~/f1ws/install/setup.bash` |
 | Build Workspace | `colcon build` |
 | Launch Simulator | `ros2 launch f1tenth_gym_ros simulator_launch.py` |
 
 ---
 
-# 🏁 Ready to build your first F1Tenth controller!
+## License
 
----
+This project is licensed under the MIT License.  
+Original components © 2020 Hongrui Zheng.  
+Modifications and extensions © Siddarth Dayasagar.
 
-# 🛡️ License
-
-MIT License - (c) 2020 Hongrui Zheng (and extensions by Siddarth Dayasagar)
-
+```
