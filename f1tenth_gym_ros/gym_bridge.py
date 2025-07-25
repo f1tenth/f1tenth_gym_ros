@@ -77,7 +77,9 @@ class GymBridge(Node):
         self.env = gym.make('f110_gym:f110-v0',
                             map=self.get_parameter('map_path').value,
                             map_ext=self.get_parameter('map_img_ext').value,
-                            num_agents=num_agents)
+                            num_agents=num_agents,
+                            lidar_dist=self.get_parameter("scan_distance_to_base_link").value
+                            )
 
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
