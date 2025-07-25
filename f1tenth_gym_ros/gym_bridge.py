@@ -248,7 +248,7 @@ class GymBridge(Node):
             return  # Skip stepping the sim if paused
 
         self.opp_requested_speed = drive_msg.drive.speed
-        self.opp_steer = drive_msg.drive.steering_angle
+        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
         self.opp_drive_published = True
 
     def ego_reset_callback(self, pose_msg):
