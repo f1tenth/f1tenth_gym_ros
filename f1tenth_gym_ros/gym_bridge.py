@@ -23,6 +23,7 @@
 import rclpy
 from rclpy.node import Node
 from rosgraph_msgs.msg import Clock
+from std_msgs.msg import Bool
 
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
@@ -185,6 +186,12 @@ class GymBridge(Node):
             self.opp_odom_pub = self.create_publisher(Odometry, opp_odom_topic, 10)
             self.opp_ego_odom_pub = self.create_publisher(Odometry, opp_ego_odom_topic, 10)
             self.opp_drive_published = False
+            
+        if self.get_parameter('use_sim_time_bridge').value:
+            self.get_logger().info('Using simulation time.')
+            self.clock_pub = self.create_publisher(Clock, '/clock', 10)
+            # Set drive timer to 0 to trigger the callback asap
+            self.drive_timer.timer_period_ns = 0
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
@@ -215,26 +222,39 @@ class GymBridge(Node):
                 '/cmd_vel',
                 self.teleop_callback,
                 10)
-            
-        if self.get_parameter('use_sim_time_bridge').value:
-            self.get_logger().info('Using simulation time.')
-            self.clock_pub = self.create_publisher(Clock, '/clock', 10)
-            # Set drive timer to 0 to trigger the callback asap
-            self.drive_timer.timer_period_ns = 0
 
+        self.sim_paused = False            
+        self.pause_subscriber = self.create_subscription(
+            Bool,
+            '/pause_sim',
+            self.pause_callback,
+            10)
+
+    def pause_callback(self, msg):
+        self.sim_paused = msg.data
+        self.get_logger().info(f"Simulation {'paused' if self.sim_paused else 'resumed'}")
 
     def drive_callback(self, drive_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         self.ego_requested_speed = drive_msg.drive.speed
         self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
         self.ego_drive_published = True
         self.get_logger().info(f'Ego drive callback: speed={self.ego_requested_speed}, steer={self.ego_steer}')
 
     def opp_drive_callback(self, drive_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         self.opp_requested_speed = drive_msg.drive.speed
         self.opp_steer = drive_msg.drive.steering_angle
         self.opp_drive_published = True
 
     def ego_reset_callback(self, pose_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         rx = pose_msg.pose.pose.position.x
         ry = pose_msg.pose.pose.position.y
         rqx = pose_msg.pose.pose.orientation.x
@@ -249,6 +269,9 @@ class GymBridge(Node):
             self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta]])})
 
     def opp_reset_callback(self, pose_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         if self.has_opp:
             rx = pose_msg.pose.position.x
             ry = pose_msg.pose.position.y
@@ -259,6 +282,9 @@ class GymBridge(Node):
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
             self.obs, _ = self.env.reset(options={"poses": np.array([(self.ego_pose), [rx, ry, rtheta]])})
     def teleop_callback(self, twist_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         if not self.ego_drive_published:
             self.ego_drive_published = True
 
@@ -272,21 +298,24 @@ class GymBridge(Node):
             self.ego_steer = 0.0
 
     def drive_timer_callback(self): 
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+        
         if self.ego_drive_published and not self.has_opp:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
         elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
         self._update_sim_state()
-        self.get_logger().info(f'Inside drive timer callback: ego speed={self.ego_speed}')
         if self.get_parameter('use_sim_time_bridge').value:
             clock_msg = Clock()
             clock_msg.clock.sec = int(self.env.current_time // 1.0)
             clock_msg.clock.nanosec = int((self.env.current_time % 1.0) * 1e9)
-            self.get_logger().info(f'Publishing clock: {clock_msg.clock.sec}.{clock_msg.clock.nanosec} seconds')
             self.clock_pub.publish(clock_msg)
-            self.get_logger().info(f'Current time: {self.env.current_time:.2f} seconds')
 
     def timer_callback(self):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+        
         ts = self.get_clock().now().to_msg()
 
         # pub scans
