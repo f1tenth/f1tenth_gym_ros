@@ -242,7 +242,6 @@ class GymBridge(Node):
         self.ego_requested_speed = drive_msg.drive.speed
         self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
         self.ego_drive_published = True
-        self.get_logger().info(f'Ego drive callback: speed={self.ego_requested_speed}, steer={self.ego_steer}')
 
     def opp_drive_callback(self, drive_msg):
         if self.sim_paused:
