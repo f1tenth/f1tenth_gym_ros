@@ -64,3 +64,6 @@ bridge:
 
     # teleop
     kb_teleop: True
+
+    # use simulation time
+    use_sim_time: True
