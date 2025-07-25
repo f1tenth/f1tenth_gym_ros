@@ -114,6 +114,7 @@ class GymBridge(Node):
                                 "params": vehicle_params,
                                 "reset_config": {"type": "map_random_static"},
                                 "scale": scale,
+                                "lidar_dist": self.get_parameter("scan_distance_to_base_link").value
                             },
                             render_mode="rgb_array",
                         )
