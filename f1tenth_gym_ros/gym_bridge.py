@@ -197,6 +197,7 @@ class GymBridge(Node):
             self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta], opp_pose]))
         else:
             self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta]]))
+        self._update_sim_state()
 
     def opp_reset_callback(self, pose_msg):
         if self.has_opp:
@@ -208,6 +209,8 @@ class GymBridge(Node):
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
             self.obs, _ , self.done, _ = self.env.reset(np.array([list(self.ego_pose), [rx, ry, rtheta]]))
+            self._update_sim_state()
+
     def teleop_callback(self, twist_msg):
         if not self.ego_drive_published:
             self.ego_drive_published = True
