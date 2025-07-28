@@ -285,9 +285,6 @@ class GymBridge(Node):
         if self.sim_paused:
             return  # Skip stepping the sim if paused
 
-        if not self.ego_drive_published:
-            self.ego_drive_published = True
-
         self.ego_requested_speed = twist_msg.linear.x
 
         if twist_msg.angular.z > 0.0:
@@ -301,9 +298,9 @@ class GymBridge(Node):
         if self.sim_paused:
             return  # Skip stepping the sim if paused
         
-        if self.ego_drive_published and not self.has_opp:
+        if not self.has_opp:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
-        elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
+        else:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
         self._update_sim_state()
         if self.get_parameter('use_sim_time_bridge').value:
