@@ -193,6 +193,7 @@ class GymBridge(Node):
             self.clock_pub = self.create_publisher(Clock, '/clock', 10)
             # Set drive timer to 0 to trigger the callback asap
             self.drive_timer.timer_period_ns = 0
+            self.timer.timer_period_ns = 0
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
