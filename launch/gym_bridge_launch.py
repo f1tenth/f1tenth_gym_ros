@@ -143,6 +143,7 @@ def generate_launch_description():
             ])},
             {'use_sim_time': use_sim_time},
         ],
+        remappings=[('/robot_description', 'opp_robot_description')]
     )
 
     # finalize

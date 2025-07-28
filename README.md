@@ -171,7 +171,7 @@ There are multiple ways to launch your own agent to control the vehicles.
 
 ## FAQ & Debugging
 ### I have python 3.8 / Ubuntu 20.04
-DO NOT CHCECKOUT TO dev-dynamics. In this case, you have an outdated python version and you are not able to uinstall the newest version of the gym. As such, skip the "git checkout" steps to remain on the main branch as that is compatible with your setup.
+DO NOT CHECKOUT TO dev-dynamics. In this case, you have an outdated python version and you are not able to install the newest version of the gym. As such, skip the "git checkout" steps to remain on the main branch as that is compatible with your setup.
 
 ### This package is managed externally, PEP 668
 You python version is very new and now enforces PEP 668 which does not allow pip installs without a virtual environment. To overcome this the easy way, use ```PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -e .```. You can do this safely as the packages installed should not break your system. 
