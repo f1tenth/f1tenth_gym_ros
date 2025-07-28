@@ -66,4 +66,7 @@ bridge:
     kb_teleop: True
 
     # use simulation time
-    use_sim_time: True
+    use_sim_time: False
+
+    # if false, only steps sim on new /drive messages
+    async_mode: True

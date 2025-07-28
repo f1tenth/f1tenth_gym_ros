@@ -72,6 +72,7 @@ class GymBridge(Node):
         self.declare_parameter('kb_teleop')
         self.declare_parameter('scale')
         self.declare_parameter('vehicle_params')
+        self.declare_parameter('async_mode')
         # Flag to know whether to publish the sim time or not
         # Has to be different than use_sim_time so we can still use real time to trigger timer callbacks
         self.declare_parameter('use_sim_time_bridge')
@@ -169,10 +170,16 @@ class GymBridge(Node):
             self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta]])})
             self.ego_scan = list(self.obs['scans'][0])
 
-        # sim physical step timer
-        self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
-        # topic publishing timer
-        self.timer = self.create_timer(0.004, self.timer_callback)
+        if not self.get_parameter('async_mode').value:
+            self.get_logger().info('Running in synchronous mode. Simulation will step only on new /drive messages.')
+            # topic publishing timer slowly, fallback for if the controller is waiting for a first odom and scan
+            self.timer = self.create_timer(1, self.timer_callback)
+        else:
+            self.get_logger().info('Running in asynchronous mode. Simulation will step using a timer callback.')
+            # sim physical step timer
+            self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
+            # topic publishing timer
+            self.timer = self.create_timer(0.004, self.timer_callback)
 
         # transform broadcaster
         self.br = TransformBroadcaster(self)
@@ -189,11 +196,12 @@ class GymBridge(Node):
             self.opp_drive_published = False
             
         if self.get_parameter('use_sim_time_bridge').value:
-            self.get_logger().info('Using simulation time.')
+            self.get_logger().info('Using simulation time. Will publish /clock topic. Drive and odom will be as fast as possible.')
             self.clock_pub = self.create_publisher(Clock, '/clock', 10)
-            # Set drive timer to 0 to trigger the callback asap
-            self.drive_timer.timer_period_ns = 0
-            self.timer.timer_period_ns = 0
+            if self.get_parameter('async_mode').value:
+                # Set drive timer to 0 to trigger the callback asap
+                self.drive_timer.timer_period_ns = 0
+                self.timer.timer_period_ns = 0
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
@@ -242,7 +250,11 @@ class GymBridge(Node):
 
         self.ego_requested_speed = drive_msg.drive.speed
         self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
-        self.ego_drive_published = True
+        
+        if not self.get_parameter('async_mode').value:
+            # step the sim immediately and publish odom and scan
+            self.drive_timer_callback()
+            self.timer_callback()
 
     def opp_drive_callback(self, drive_msg):
         if self.sim_paused:
@@ -250,7 +262,11 @@ class GymBridge(Node):
 
         self.opp_requested_speed = drive_msg.drive.speed
         self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
-        self.opp_drive_published = True
+        
+        if not self.get_parameter('async_mode').value:
+            # step the sim immediately and publish odom and scan
+            self.drive_timer_callback()
+            self.timer_callback()
 
     def ego_reset_callback(self, pose_msg):
         if self.sim_paused:
@@ -282,6 +298,7 @@ class GymBridge(Node):
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
             self.obs, _ = self.env.reset(options={"poses": np.array([(self.ego_pose), [rx, ry, rtheta]])})
+
     def teleop_callback(self, twist_msg):
         if self.sim_paused:
             return  # Skip stepping the sim if paused
@@ -306,8 +323,8 @@ class GymBridge(Node):
         self._update_sim_state()
         if self.get_parameter('use_sim_time_bridge').value:
             clock_msg = Clock()
-            clock_msg.clock.sec = int(self.env.current_time // 1.0)
-            clock_msg.clock.nanosec = int((self.env.current_time % 1.0) * 1e9)
+            clock_msg.clock.sec = int(self.env.unwrapped.current_time // 1.0)
+            clock_msg.clock.nanosec = int((self.env.unwrapped.current_time % 1.0) * 1e9)
             self.clock_pub.publish(clock_msg)
 
     def timer_callback(self):
