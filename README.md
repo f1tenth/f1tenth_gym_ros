@@ -3,22 +3,24 @@ This is a containerized ROS communication bridge for the F1TENTH gym environment
 
 # Installation
 
-**Supported System:**
+**Supported Systems:**
 
-- Ubuntu (tested on 20.04) native with ROS 2
+- Ubuntu (tested on 22.04) native with ROS 2 Humble
 - Ubuntu (tested on 20.04) with an NVIDIA gpu and nvidia-docker2 support
-- Windows 10, macOS, and Ubuntu without an NVIDIA gpu (using noVNC)
+- Windows 10/11, macOS, and Ubuntu without an NVIDIA gpu (using noVNC)
 
 This installation guide will be split into instruction for installing the ROS 2 package natively, and for systems with or without an NVIDIA gpu in Docker containers.
 
-## Native on Ubuntu 20.04
+## Native on Ubuntu 22.04 (Recommended)
+Setup a native Ubuntu 22.04 either on your own machine (using dual boot or main OS) or using a virtualmachine using your favorite virtualization software ([VMWare](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) recommended).
 
 **Install the following dependencies:**
-- **ROS 2** Follow the instructions [here](https://docs.ros.org/en/foxy/Installation.html) to install ROS 2 Foxy.
+- **ROS 2** Follow the instructions [here](https://docs.ros.org/en/humble/Installation.html) to install ROS 2 Humble.
 - **F1TENTH Gym**
   ```bash
   git clone https://github.com/f1tenth/f1tenth_gym
-  cd f1tenth_gym && pip3 install -e .
+  cd f1tenth_gym && git checkout dev-dynamics
+  pip3 install -e .
   ```
 
 **Installing the simulation:**
@@ -28,18 +30,25 @@ This installation guide will be split into instruction for installing the ROS 2 
   cd $HOME/sim_ws/src
   git clone https://github.com/f1tenth/f1tenth_gym_ros
   ```
+- Checkout into the latest dev-dynamics branch
+  ```
+  cd f1tenth_gym_ros && git checkout dev-dynamics
+  ```
 - Update correct parameter for path to map file:
   Go to `sim.yaml` [https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml](https://github.com/f1tenth/f1tenth_gym_ros/blob/main/config/sim.yaml) in your cloned repo, change the `map_path` parameter to point to the correct location. It should be `'<your_home_dir>/sim_ws/src/f1tenth_gym_ros/maps/levine'`
 - Install dependencies with rosdep:
   ```bash
-  source /opt/ros/foxy/setup.bash
+  source /opt/ros/humble/setup.bash
   cd ..
-  rosdep install -i --from-path src --rosdistro foxy -y
+  rosdep install -i --from-path src --rosdistro humble -y
   ```
-- Build the workspace: ```colcon build```
+- Build the workspace: ```cd $HOME/sim_ws && colcon build```
 
-## With an NVIDIA gpu:
+Once you're done and everything is installed, skip to the [launching the simulation section](https://github.com/f1tenth/f1tenth_gym_ros/edit/dev-dynamics/README.md#launching-the-simulation).
+## Docker ##
+**AVOID USING DOCKER IF YOU HAVE NEVER USED IT BEFORE.**
 
+### With an NVIDIA gpu:
 **Install the following dependencies:**
 
 - **Docker** Follow the instructions [here](https://docs.docker.com/install/linux/docker-ce/ubuntu/) to install Docker. A short tutorial can be found [here](https://docs.docker.com/get-started/) if you're not familiar with Docker. If you followed the post-installation steps you won't have to prepend your docker and docker-compose commands with sudo.
@@ -59,7 +68,7 @@ $ docker build -t f1tenth_gym_ros -f Dockerfile .
 $ rocker --nvidia --x11 --volume .:/sim_ws/src/f1tenth_gym_ros -- f1tenth_gym_ros
 ```
 
-## Without an NVIDIA gpu:
+### Without an NVIDIA gpu:
 
 **Install the following dependencies:**
 
@@ -85,7 +94,7 @@ docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
 1. `tmux` is included in the contianer, so you can create multiple bash sessions in the same terminal.
 2. To launch the simulation, make sure you source both the ROS2 setup script and the local workspace setup script. Run the following in the bash session from the container:
 ```bash
-$ source /opt/ros/foxy/setup.bash
+$ source /opt/ros/humble/setup.bash
 $ source install/local_setup.bash
 $ ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ```
@@ -158,3 +167,20 @@ There are multiple ways to launch your own agent to control the vehicles.
 
 - The first one is creating a new package for your agent in the `/sim_ws` workspace inside the sim container. After launch the simulation, launch the agent node in another bash session while the sim is running.
 - The second one is to create a new ROS 2 container for you agent node. Then create your own package and nodes inside. Launch the sim container and the agent container both. With default networking configurations for `docker`, the behavior is to put The two containers on the same network, and they should be able to discover and talk to each other on different topics. If you're using noVNC, create a new service in `docker-compose.yml` for your agent node. You'll also have to put your container on the same network as the sim and novnc containers.
+
+
+## FAQ & Debugging
+### I have python 3.8 / Ubuntu 20.04
+DO NOT CHECKOUT TO dev-dynamics. In this case, you have an outdated python version and you are not able to install the newest version of the gym. As such, skip the "git checkout" steps to remain on the main branch as that is compatible with your setup.
+
+### This package is managed externally, PEP 668
+You python version is very new and now enforces PEP 668 which does not allow pip installs without a virtual environment. To overcome this the easy way, use ```PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -e .```. You can do this safely as the packages installed should not break your system. 
+
+### Pyqt6 6.8 cached, fails to install
+In rare cases, you might have a newer cached version of pyqt6 which breaks the .toml install. To resolve this, first install pyqt6 first using ```pip3 install pyqt6==6.7.1``` and then install the f1tenth_gym using ```pip3 install -e .```.
+
+### Scipy requires older numpy / pillow has no transpose / etc...
+In most of these cases, you can resolve these problems by ```pip3 install --upgrade <troublesome_package>```. i.e if you are facing a scipy problem with "numpy has no Inf", then you can call ```pip3 install --upgrade scipy```. Usually the three packages that can break are scipy, numpy, and pillow.
+
+### "opencv>=3. invalid" error on pip install
+This indicates that you have outdated pip, wheel or setuptools. To resolve this, you can run ```python3 -m pip install --upgrade pip wheel setuptools```. This will upgrade all tools used by python when pip installing packages.

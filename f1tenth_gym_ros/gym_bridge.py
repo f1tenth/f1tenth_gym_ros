@@ -22,6 +22,8 @@
 
 import rclpy
 from rclpy.node import Node
+from rosgraph_msgs.msg import Clock
+from std_msgs.msg import Bool
 
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
@@ -45,31 +47,35 @@ class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
 
-        self.declare_parameter('ego_namespace')
-        self.declare_parameter('ego_odom_topic')
-        self.declare_parameter('ego_opp_odom_topic')
-        self.declare_parameter('ego_scan_topic')
-        self.declare_parameter('ego_drive_topic')
-        self.declare_parameter('opp_namespace')
-        self.declare_parameter('opp_odom_topic')
-        self.declare_parameter('opp_ego_odom_topic')
-        self.declare_parameter('opp_scan_topic')
-        self.declare_parameter('opp_drive_topic')
-        self.declare_parameter('scan_distance_to_base_link')
-        self.declare_parameter('scan_fov')
-        self.declare_parameter('scan_beams')
-        self.declare_parameter('map_path')
-        self.declare_parameter('map_img_ext')
-        self.declare_parameter('num_agent')
-        self.declare_parameter('sx')
-        self.declare_parameter('sy')
-        self.declare_parameter('stheta')
-        self.declare_parameter('sx1')
-        self.declare_parameter('sy1')
-        self.declare_parameter('stheta1')
-        self.declare_parameter('kb_teleop')
-        self.declare_parameter('scale')
-        self.declare_parameter('vehicle_params')
+        self.declare_parameter('ego_namespace', 'ego_racecar')
+        self.declare_parameter('ego_odom_topic', 'odom')
+        self.declare_parameter('ego_opp_odom_topic', 'opp_odom')
+        self.declare_parameter('ego_scan_topic', 'scan')
+        self.declare_parameter('ego_drive_topic', 'drive')
+        self.declare_parameter('opp_namespace', 'opp_racecar')
+        self.declare_parameter('opp_odom_topic', 'odom')
+        self.declare_parameter('opp_ego_odom_topic', 'opp_odom')
+        self.declare_parameter('opp_scan_topic', 'opp_scan')
+        self.declare_parameter('opp_drive_topic', 'opp_drive')
+        self.declare_parameter('scan_distance_to_base_link', 0.275)
+        self.declare_parameter('scan_fov', 4.7)
+        self.declare_parameter('scan_beams', 1080)
+        self.declare_parameter('map_path', 'levine')
+        self.declare_parameter('map_img_ext', '.png')
+        self.declare_parameter('num_agent', 1)
+        self.declare_parameter('sx', 0.0)
+        self.declare_parameter('sy', 0.0)
+        self.declare_parameter('stheta', 0.0)
+        self.declare_parameter('sx1', 2.0)
+        self.declare_parameter('sy1', 0.5)
+        self.declare_parameter('stheta1', 0.0)
+        self.declare_parameter('kb_teleop', True)
+        self.declare_parameter('scale', 1.0)
+        self.declare_parameter('vehicle_params', 'f1tenth')
+        self.declare_parameter('async_mode', True)
+        # Flag to know whether to publish the sim time or not
+        # Has to be different than use_sim_time so we can still use real time to trigger timer callbacks
+        self.declare_parameter('use_sim_time_bridge', False)
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
@@ -78,13 +84,13 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
-        vehicle_params = None
+        self.vehicle_params = None
         if self.get_parameter('vehicle_params').value == 'f1tenth':
-            vehicle_params = F110Env.f1tenth_vehicle_params()
+            self.vehicle_params = F110Env.f1tenth_vehicle_params()
         elif self.get_parameter('vehicle_params').value == 'fullscale':
-            vehicle_params = F110Env.fullscale_vehicle_params()
+            self.vehicle_params = F110Env.fullscale_vehicle_params()
         elif self.get_parameter('vehicle_params').value == 'f1fifth':
-            vehicle_params = F110Env.f1fifth_vehicle_params()
+            self.vehicle_params = F110Env.f1fifth_vehicle_params()
         else:
             raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
 
@@ -111,9 +117,10 @@ class GymBridge(Node):
                                 "control_input": ["speed", "steering_angle"],
                                 "model": "st",
                                 "observation_config": {"type": "original"},
-                                "params": vehicle_params,
+                                "params": self.vehicle_params,
                                 "reset_config": {"type": "map_random_static"},
                                 "scale": scale,
+                                "lidar_dist": self.get_parameter("scan_distance_to_base_link").value
                             },
                             render_mode="rgb_array",
                         )
@@ -163,10 +170,16 @@ class GymBridge(Node):
             self.obs, _ = self.env.reset(options={"poses": np.array([[sx, sy, stheta]])})
             self.ego_scan = list(self.obs['scans'][0])
 
-        # sim physical step timer
-        self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
-        # topic publishing timer
-        self.timer = self.create_timer(0.004, self.timer_callback)
+        if not self.get_parameter('async_mode').value:
+            self.get_logger().info('Running in synchronous mode. Simulation will step only on new /drive messages.')
+            # topic publishing timer slowly, fallback for if the controller is waiting for a first odom and scan
+            self.timer = self.create_timer(1, self.timer_callback)
+        else:
+            self.get_logger().info('Running in asynchronous mode. Simulation will step using a timer callback.')
+            # sim physical step timer
+            self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
+            # topic publishing timer
+            self.timer = self.create_timer(0.004, self.timer_callback)
 
         # transform broadcaster
         self.br = TransformBroadcaster(self)
@@ -181,6 +194,14 @@ class GymBridge(Node):
             self.opp_odom_pub = self.create_publisher(Odometry, opp_odom_topic, 10)
             self.opp_ego_odom_pub = self.create_publisher(Odometry, opp_ego_odom_topic, 10)
             self.opp_drive_published = False
+            
+        if self.get_parameter('use_sim_time_bridge').value:
+            self.get_logger().info('Using simulation time. Will publish /clock topic. Drive and odom will be as fast as possible.')
+            self.clock_pub = self.create_publisher(Clock, '/clock', 10)
+            if self.get_parameter('async_mode').value:
+                # Set drive timer to 0 to trigger the callback asap
+                self.drive_timer.timer_period_ns = 0
+                self.timer.timer_period_ns = 0
 
         # subscribers
         self.ego_drive_sub = self.create_subscription(
@@ -212,18 +233,45 @@ class GymBridge(Node):
                 self.teleop_callback,
                 10)
 
+        self.sim_paused = False            
+        self.pause_subscriber = self.create_subscription(
+            Bool,
+            '/pause_sim',
+            self.pause_callback,
+            10)
+
+    def pause_callback(self, msg):
+        self.sim_paused = msg.data
+        self.get_logger().info(f"Simulation {'paused' if self.sim_paused else 'resumed'}")
 
     def drive_callback(self, drive_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         self.ego_requested_speed = drive_msg.drive.speed
-        self.ego_steer = drive_msg.drive.steering_angle
-        self.ego_drive_published = True
+        self.ego_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        
+        if not self.get_parameter('async_mode').value:
+            # step the sim immediately and publish odom and scan
+            self.drive_timer_callback()
+            self.timer_callback()
 
     def opp_drive_callback(self, drive_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         self.opp_requested_speed = drive_msg.drive.speed
-        self.opp_steer = drive_msg.drive.steering_angle
-        self.opp_drive_published = True
+        self.opp_steer = np.clip(drive_msg.drive.steering_angle, self.vehicle_params['s_min'], self.vehicle_params['s_max'])
+        
+        if not self.get_parameter('async_mode').value:
+            # step the sim immediately and publish odom and scan
+            self.drive_timer_callback()
+            self.timer_callback()
 
     def ego_reset_callback(self, pose_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         rx = pose_msg.pose.pose.position.x
         ry = pose_msg.pose.pose.position.y
         rqx = pose_msg.pose.pose.orientation.x
@@ -238,6 +286,9 @@ class GymBridge(Node):
             self.obs, _ = self.env.reset(options={"poses": np.array([[rx, ry, rtheta]])})
 
     def opp_reset_callback(self, pose_msg):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+
         if self.has_opp:
             rx = pose_msg.pose.position.x
             ry = pose_msg.pose.position.y
@@ -247,9 +298,10 @@ class GymBridge(Node):
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
             self.obs, _ = self.env.reset(options={"poses": np.array([(self.ego_pose), [rx, ry, rtheta]])})
+
     def teleop_callback(self, twist_msg):
-        if not self.ego_drive_published:
-            self.ego_drive_published = True
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
 
         self.ego_requested_speed = twist_msg.linear.x
 
@@ -260,15 +312,30 @@ class GymBridge(Node):
         else:
             self.ego_steer = 0.0
 
-    def drive_timer_callback(self):
-        if self.ego_drive_published and not self.has_opp:
+    def drive_timer_callback(self): 
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+        
+        if not self.has_opp:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed]]))
-        elif self.ego_drive_published and self.has_opp and self.opp_drive_published:
+        else:
             self.obs, _, self.done, _, _ = self.env.step(np.array([[self.ego_steer, self.ego_requested_speed], [self.opp_steer, self.opp_requested_speed]]))
         self._update_sim_state()
+        if self.get_parameter('use_sim_time_bridge').value:
+            clock_msg = Clock()
+            clock_msg.clock.sec = int(self.env.unwrapped.current_time // 1.0)
+            clock_msg.clock.nanosec = int((self.env.unwrapped.current_time % 1.0) * 1e9)
+            self.clock_pub.publish(clock_msg)
 
     def timer_callback(self):
+        if self.sim_paused:
+            return  # Skip stepping the sim if paused
+        
         ts = self.get_clock().now().to_msg()
+        if self.get_parameter('use_sim_time_bridge').value:
+            # Ensure sim-time stamps the messages   
+            ts.sec = int(self.env.unwrapped.current_time // 1.0)
+            ts.nanosec = int((self.env.unwrapped.current_time % 1.0) * 1e9)
 
         # pub scans
         scan = LaserScan()

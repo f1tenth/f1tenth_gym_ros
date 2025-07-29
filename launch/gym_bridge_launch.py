@@ -37,18 +37,23 @@ def generate_launch_description():
     config_dict = yaml.safe_load(open(config, 'r'))
     has_opp = config_dict['bridge']['ros__parameters']['num_agent'] > 1
     teleop = config_dict['bridge']['ros__parameters']['kb_teleop']
+    use_sim_time = config_dict['bridge']['ros__parameters']['use_sim_time']
 
     bridge_node = Node(
         package='f1tenth_gym_ros',
         executable='gym_bridge',
         name='bridge',
-        parameters=[config]
+        parameters=[config, {
+            'use_sim_time': False,  # Always use real time for the bridge node
+            'use_sim_time_bridge': use_sim_time, # Whether to internally use and publish sim time
+            }], 
     )
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz',
-        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz')]
+        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz')],
+        parameters=[{'use_sim_time': use_sim_time}],
     )
 
     # Create custom yaml file for map server by copying the original yaml file and scaling the resolution by the sim.yaml scale
@@ -91,14 +96,14 @@ def generate_launch_description():
                     {'topic': 'map'},
                     {'frame_id': 'map'},
                     {'output': 'screen'},
-                    {'use_sim_time': True}]
+                    {'use_sim_time': use_sim_time}],
     )
     nav_lifecycle_node = Node(
         package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_localization',
         output='screen',
-        parameters=[{'use_sim_time': True},
+        parameters=[{'use_sim_time': use_sim_time},
                     {'autostart': True},
                     {'node_names': ['map_server']}]
     )
@@ -118,14 +123,26 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='ego_robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', ego_xacro)])}],
+        parameters=[
+            {'robot_description': Command([
+                'xacro ',
+                os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', ego_xacro)
+            ])},
+            {'use_sim_time': use_sim_time},
+        ],
         remappings=[('/robot_description', 'ego_robot_description')]
     )
     opp_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='opp_robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'opp_racecar.xacro')])}],
+        parameters=[
+            {'robot_description': Command([
+                'xacro ',
+                os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'opp_racecar.xacro')
+            ])},
+            {'use_sim_time': use_sim_time},
+        ],
         remappings=[('/robot_description', 'opp_robot_description')]
     )
 
