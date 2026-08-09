@@ -117,7 +117,11 @@ You can then run another node by creating another bash session in `tmux` or a se
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but is recommended to leave uncahnged.
 - The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention; the image file and the `yaml` file should live together.
-- The `num_agent` parameter can be changed to either 1 or 2 for single or two agent racing. Multi-agent racing (>2) is planned, but not yet supported by the gym_ros.
+- The `num_agent` parameter can be changed to anywhere between 1 and 4 agents. The first agent is the ego car, all further agents are opponents. For more than 2 agents, use `config/sim_4car.yaml` with the multi-agent launch file, which spawns a robot model for every opponent:
+```bash
+ros2 launch f1tenth_gym_ros gym_bridge_4car_launch.py
+```
+- The ego and opponent starting poses can also be changed via parameters (`sx`/`sy`/`stheta` for the ego, `sx1..3`/`sy1..3`/`stheta1..3` for the opponents), these are in the global map coordinate frame.
 - The ego and opponent starting pose can also be changed via parameters, these are in the global map coordinate frame.
 - Foxglove launch behavior can be configured in `sim.yaml` under `foxglove.ros__parameters`:
   - `open_foxglove`: `True` or `False`
@@ -142,17 +146,17 @@ In **single** agent:
 
 A `tf` tree is also maintained.
 
-In **two** agents:
+With **multiple** agents (2-4):
 
-In addition to the topics available in the single agent scenario, these topics are also available:
+In addition to the topics available in the single agent scenario, these topics are also available for each opponent. Opponent namespaces and topics carry the opponent's index as a suffix — the first opponent has no suffix (identical to the previous two-agent setup), the second and third use `2` and `3`:
 
-`/opp_scan`: The opponent agent's laser scan
+`/opp_scan`, `/opp_scan2`, `/opp_scan3`: The opponent agents' laser scans
 
-`/ego_racecar/opp_odom`: The opponent agent's odometry for the ego agent's planner
+`/ego_racecar/opp_odom`, `/ego_racecar/opp_odom2`, `/ego_racecar/opp_odom3`: The opponent agents' odometry for the ego agent's planner
 
-`/opp_racecar/odom`: The opponent agents' odometry
+`/opp_racecar/odom`, `/opp_racecar2/odom`, `/opp_racecar3/odom`: The opponent agents' odometry
 
-`/opp_racecar/opp_odom`: The ego agent's odometry for the opponent agent's planner
+`/opp_racecar/opp_odom`, `/opp_racecar2/opp_odom`, `/opp_racecar3/opp_odom`: The ego agent's odometry for each opponent agent's planner
 
 # Topics subscribed by the simulation
 
@@ -162,13 +166,13 @@ In **single** agent:
 
 `/initalpose`: This is the topic for resetting the ego's pose via RViz's Foxglove's 2D Pose Estimate tool.
 
-In **two** agents:
+With **multiple** agents (2-4):
 
 In addition to all topics in the single agent scenario, these topics are also available:
 
-`/opp_drive`: The opponent agent's drive command via `AckermannDriveStamped` messages. Note that you'll need to publish to **both** the ego's drive topic and the opponent's drive topic for the cars to move when using 2 agents.
+`/opp_drive`, `/opp_drive2`, `/opp_drive3`: The opponent agents' drive commands via `AckermannDriveStamped` messages. Note that each car only moves when something publishes to its own drive topic.
 
-`/goal_pose`: This is the topic for resetting the opponent agent's pose via RViz's or Foxglove's 2D Goal Pose tool.
+`/goal_pose`, `/goal_pose2`, `/goal_pose3`: These are the topics for resetting an opponent agent's pose. RViz's or Foxglove's 2D Goal Pose tool publishes to `/goal_pose` (first opponent).
 
 # Keyboard Teleop
 
