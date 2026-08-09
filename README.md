@@ -117,7 +117,7 @@ You can then run another node by creating another bash session in `tmux` or a se
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but is recommended to leave uncahnged.
 - The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention; the image file and the `yaml` file should live together.
-- The `num_agent` parameter can be changed to anywhere between 1 and 4 agents. The first agent is the ego car, all further agents are opponents. For more than 2 agents, use `config/sim_4car.yaml` with the multi-agent launch file, which spawns a robot model for every opponent:
+- The `num_agent` parameter can be changed to anywhere between 1 and 4 agents. The first agent is the ego car, all further agents are opponents. For more than 2 agents, use `config/sim_4car.yaml` with the multi-agent launch file, which spawns a robot model for every opponent and defaults to the multi-car Foxglove layout `config/foxglove/4_Opponents_Foxglove.json`:
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_4car_launch.py
 ```

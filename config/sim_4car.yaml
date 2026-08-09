@@ -67,23 +67,23 @@ bridge:
     num_agent: 4
 
     # ego starting pose on map
-    sx: 0.0
+    sx: -12.0
     sy: 0.0
     stheta: 0.0
 
     # opp 1 starting pose on map
-    sx1: 2.0
-    sy1: 0.5
+    sx1: -5.5
+    sy1: 0.0
     stheta1: 0.0
 
     # opp 2 starting pose on map
-    sx2: 4.0
+    sx2: 1.0
     sy2: 0.0
     stheta2: 0.0
 
     # opp 3 starting pose on map
-    sx3: 6.0
-    sy3: 0.5
+    sx3: 8.0
+    sy3: 0.0
     stheta3: 0.0
 
     # teleop

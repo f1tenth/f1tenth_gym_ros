@@ -248,7 +248,7 @@ def generate_launch_description():
     ld.add_action(
         DeclareLaunchArgument(
             'foxglove_layout',
-            default_value=os.path.join(package_share, 'config', 'foxglove', 'gym_bridge_foxglove.json'),
+            default_value=os.path.join(package_share, 'config', 'foxglove', '4_Opponents_Foxglove.json'),
             description='Path to Foxglove layout JSON.',
         )
     )
