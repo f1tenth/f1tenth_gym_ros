@@ -3,7 +3,7 @@
     "3D!18i6zy7": {
       "layers": {
         "845139cb-26bc-40b3-8161-8ab60af4baf5": {
-          "visible": true,
+          "visible": false,
           "frameLocked": true,
           "label": "Grid",
           "instanceId": "845139cb-26bc-40b3-8161-8ab60af4baf5",
@@ -42,18 +42,82 @@
           "framePrefix": "",
           "order": 2,
           "fallbackColor": "#ff0000"
+        },
+        "e1031b0e-b009-492a-8910-a9ab5c1016fe": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "e1031b0e-b009-492a-8910-a9ab5c1016fe",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description",
+          "framePrefix": "",
+          "order": 3
+        },
+        "382e6f83-7912-4c69-8630-285c14850a65": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "382e6f83-7912-4c69-8630-285c14850a65",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description2",
+          "framePrefix": "",
+          "order": 4
+        },
+        "6ccd9716-f098-4bb9-b5bb-7aca6669cc33": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "6ccd9716-f098-4bb9-b5bb-7aca6669cc33",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description3",
+          "framePrefix": "",
+          "order": 5
         }
       },
       "cameraState": {
-        "distance": 20,
         "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
+        "distance": 19.999999999998618,
+        "phi": 60.000000000000455,
+        "thetaOffset": 45.00000000000291,
         "targetOffset": [
+          -8.911253059531552,
+          0.03503782712386546,
+          -4.859471553016986e-17
+        ],
+        "target": [
           0,
           0,
           0
@@ -64,7 +128,6 @@
           0,
           1
         ],
-        "thetaOffset": 45,
         "fovy": 45,
         "near": 0.5,
         "far": 5000
@@ -112,7 +175,8 @@
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
-      "imageMode": {}
+      "imageMode": {},
+      "synchronize": false
     },
     "RawMessages!os6rgs": {
       "diffEnabled": false,
@@ -120,7 +184,8 @@
       "diffTopicPath": "",
       "showFullMessageForDiff": false,
       "topicPath": "",
-      "fontSize": 12
+      "fontSize": 12,
+      "defaultExpanded": false
     },
     "Image!3mnp456": {
       "cameraState": {
@@ -162,7 +227,8 @@
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
-      "imageMode": {}
+      "imageMode": {},
+      "synchronize": false
     }
   },
   "globalVariables": {},
