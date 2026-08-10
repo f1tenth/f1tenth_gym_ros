@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import math
 import pathlib
 from functools import partial
 
@@ -65,8 +66,6 @@ from f1tenth_gym.envs.lidar import LiDARConfig
 from f1tenth_gym.envs.observation import ObservationType
 from f1tenth_gym.envs.reset import ResetStrategy
 from f1tenth_gym.envs.track import Track, Raceline
-
-MAX_AGENTS = 4
 
 
 def opp_suffix(opp_index):
@@ -193,15 +192,6 @@ class GymBridge(Node):
         self.declare_parameter('sx', 0.0)
         self.declare_parameter('sy', 0.0)
         self.declare_parameter('stheta', 0.0)
-        self.declare_parameter('sx1', 2.0)
-        self.declare_parameter('sy1', 0.5)
-        self.declare_parameter('stheta1', 0.0)
-        self.declare_parameter('sx2', 4.0)
-        self.declare_parameter('sy2', 0.0)
-        self.declare_parameter('stheta2', 0.0)
-        self.declare_parameter('sx3', 6.0)
-        self.declare_parameter('sy3', 0.5)
-        self.declare_parameter('stheta3', 0.0)
         self.declare_parameter('kb_teleop', True)
         self.declare_parameter('scale', 1.0)
         self.declare_parameter('vehicle_params', 'f1tenth')
@@ -214,8 +204,26 @@ class GymBridge(Node):
         num_agents = self.get_parameter('num_agent').value
         if type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
-        if num_agents < 1 or num_agents > MAX_AGENTS:
-            raise ValueError(f'num_agents should be between 1 and {MAX_AGENTS}.')
+        if num_agents < 1:
+            raise ValueError('num_agents should be at least 1.')
+
+        # One start pose per opponent
+        # NaN = 'not set by the config'.
+        for i in range(1, num_agents):
+            self.declare_parameter(f'sx{i}', float('nan'))
+            self.declare_parameter(f'sy{i}', float('nan'))
+            self.declare_parameter(f'stheta{i}', float('nan'))
+
+        # Checked before the map and the sim env are built so an incomplete
+        # config fails immediately instead of after loading everything.
+        opp_poses, missing_pose_params = self._opp_start_poses(num_agents)
+        if missing_pose_params:
+            raise ValueError(
+                f'num_agent is {num_agents}, so a start pose is needed for each of '
+                f'the {num_agents - 1} opponent(s), but these parameters were not '
+                f'set: {", ".join(missing_pose_params)}. Add them to the sim config '
+                'this node was launched with (see config/sim.yaml).'
+            )
 
         self.vehicle_params = None
         vehicle_params_key = self.get_parameter('vehicle_params').value
@@ -358,13 +366,16 @@ class GymBridge(Node):
                 odom_topic=namespace + '/' + opp_odom_topic,
                 ego_odom_topic=namespace + '/' + opp_ego_odom_topic,
                 odom_in_ego_topic=self.ego_namespace + '/' + ego_opp_odom_topic + suffix,
-                pose=[
-                    self.get_parameter(f'sx{i}').value,
-                    self.get_parameter(f'sy{i}').value,
-                    self.get_parameter(f'stheta{i}').value,
-                ],
+                pose=opp_poses[i - 1],
             ))
         self.has_opp = len(self.opps) > 0
+        self.get_logger().info(
+            'Start poses: ' + '; '.join(
+                f'{ns}=({p[0]:.2f}, {p[1]:.2f}, {p[2]:.2f})'
+                for ns, p in [(self.ego_namespace, self.ego_pose)]
+                + [(opp.namespace, opp.pose) for opp in self.opps]
+            )
+        )
 
         self.env.reset(options={"poses": np.array(self._all_poses())})
         self._update_sim_state()
@@ -439,6 +450,25 @@ class GymBridge(Node):
             '/pause_sim',
             self.pause_callback,
             10)
+
+    def _opp_start_poses(self, num_agents):
+        """Read sx/sy/stheta for each opponent, reporting any left unset.
+
+        Returns (poses, missing), where missing lists the parameter names that
+        were never given a value. Poses are only usable when missing is empty.
+        """
+        poses = []
+        missing = []
+        for i in range(1, num_agents):
+            pose = []
+            for key in (f'sx{i}', f'sy{i}', f'stheta{i}'):
+                value = self.get_parameter(key).value
+                if value is None or math.isnan(value):
+                    missing.append(key)
+                    value = 0.0
+                pose.append(float(value))
+            poses.append(pose)
+        return poses, missing
 
     def _all_poses(self):
         return [list(self.ego_pose)] + [list(opp.pose) for opp in self.opps]
