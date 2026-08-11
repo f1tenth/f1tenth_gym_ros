@@ -1,0 +1,153 @@
+<?xml version="1.0"?>
+
+<!--
+  GENERATED FILE - DO NOT EDIT BY HAND.
+
+  Written by scripts/usd_to_mesh.py from meshes/roboracer.usd. Re-run that script
+  after changing the USD; hand edits here are lost on the next regeneration.
+
+  Same link and joint names as urdf/ego_racecar.xacro so TF, the gym bridge and
+  anything downstream keep working - only the geometry changed, from primitive
+  boxes to the meshes baked out of the USD.
+-->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="racecar">
+
+  <xacro:arg name="car_name" default="ego_racecar"/>
+  <!-- Tints roboracer_accent.stl, which is how ego and opponents are told apart.
+       That mesh is STL precisely so this colour is the only one a viewer has. -->
+  <xacro:arg name="accent_color" default="0.3 0.57 1.0 1.0"/>
+  <!-- One of f1tenth, f1fifth, fullscale. The USD is an F1TENTH car, so the other
+       platforms reuse it scaled by the ratio of wheelbases. -->
+  <xacro:arg name="vehicle" default="f1tenth"/>
+
+  <xacro:property name="car_name" value="$(arg car_name)"/>
+  <xacro:property name="vehicle" value="$(arg vehicle)"/>
+  <xacro:if value="${vehicle == 'f1tenth'}">
+    <xacro:property name="s" value="${1.000000}"/>
+    <xacro:property name="lr" value="${0.171450}"/>
+  </xacro:if>
+  <xacro:if value="${vehicle == 'f1fifth'}">
+    <xacro:property name="s" value="${1.656456}"/>
+    <xacro:property name="lr" value="${0.258500}"/>
+  </xacro:if>
+  <xacro:if value="${vehicle == 'fullscale'}">
+    <xacro:property name="s" value="${7.449941}"/>
+    <xacro:property name="lr" value="${1.508760}"/>
+  </xacro:if>
+  <xacro:property name="mesh_dir" value="package://f1tenth_gym_ros/meshes"/>
+
+  <material name="${car_name}_accent">
+    <color rgba="$(arg accent_color)"/>
+  </material>
+
+  <!-- Origin is the centre of gravity, on the ground, because that is the pose
+       the gym reports and the bridge publishes base_link at. The meshes are built
+       about the rear axle, so everything here is shifted back by lr. Everything on
+       the sprung mass is baked into one mesh; only the parts the bridge animates
+       are split out. -->
+  <link name="${car_name}/base_link">
+    <visual>
+      <origin xyz="${-lr} 0 0"/>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_chassis.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="${-lr} 0 0"/>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_accent.stl" scale="${s} ${s} ${s}"/>
+      </geometry>
+      <material name="${car_name}_accent"/>
+    </visual>
+  </link>
+
+  <joint name="base_to_laser_model" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/laser_model"/>
+    <origin xyz="${s * 0.266962 - lr} ${s * 0.000249} ${s * 0.121636}"/>
+  </joint>
+
+  <link name="${car_name}/laser_model">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_lidar.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="base_to_back_left_wheel" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/back_left_wheel"/>
+    <origin xyz="${s * -0.000833 - lr} ${s * 0.130772} ${s * 0.051076}"/>
+  </joint>
+
+  <link name="${car_name}/back_left_wheel">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_wheel_rear_left.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="base_to_back_right_wheel" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/back_right_wheel"/>
+    <origin xyz="${s * 0.000833 - lr} ${s * -0.132075} ${s * 0.050856}"/>
+  </joint>
+
+  <link name="${car_name}/back_right_wheel">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_wheel_rear_right.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- The hinge frames are where the bridge publishes the steering rotation, so
+       the front wheel meshes are centred on their hubs and spin about z there. -->
+  <joint name="base_to_front_left_hinge" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/front_left_hinge"/>
+    <origin xyz="${s * 0.321733 - lr} ${s * 0.132904} ${s * 0.051058}"/>
+  </joint>
+
+  <link name="${car_name}/front_left_hinge"/>
+
+  <joint name="front_left_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/front_left_hinge"/>
+    <child link="${car_name}/front_left_wheel"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <link name="${car_name}/front_left_wheel">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_wheel_front_left.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="base_to_front_right_hinge" type="fixed">
+    <parent link="${car_name}/base_link"/>
+    <child link="${car_name}/front_right_hinge"/>
+    <origin xyz="${s * 0.320602 - lr} ${s * -0.131600} ${s * 0.050883}"/>
+  </joint>
+
+  <link name="${car_name}/front_right_hinge"/>
+
+  <joint name="front_right_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/front_right_hinge"/>
+    <child link="${car_name}/front_right_wheel"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <link name="${car_name}/front_right_wheel">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/roboracer_wheel_front_right.glb" scale="${s} ${s} ${s}"/>
+      </geometry>
+    </visual>
+  </link>
+
+</robot>

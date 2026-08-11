@@ -31,6 +31,11 @@ from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
+# Tints the accent mesh so ego and opponents stay as easy to tell apart as the
+# blue and orange boxes were. Same colours the primitive models use.
+EGO_ACCENT_COLOR = '0.3 0.57 1.0 1.0'
+OPP_ACCENT_COLOR = '1.0 0.57 0.1 1.0'
+
 
 def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
     if base_path.suffix in ('.yaml', '.yml'):
@@ -181,32 +186,35 @@ def _launch_setup(context, *args, **kwargs):
     )
 
 
-    ego_xacro = None
-    if config_dict['bridge']['ros__parameters']['vehicle_params'] == 'f1tenth':
-        ego_xacro = "ego_racecar.xacro"
-    elif config_dict['bridge']['ros__parameters']['vehicle_params'] == 'fullscale':
-        ego_xacro = "ego_racecar_fullscale.xacro"
-    elif config_dict['bridge']['ros__parameters']['vehicle_params'] == 'f1fifth':
-        ego_xacro = "ego_racecar_f1fifth.xacro"
-    else:
-        raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
-    
+    vehicle_params = config_dict['bridge']['ros__parameters']['vehicle_params']
+    urdf_dir = os.path.join(package_share, 'urdf')
+    ego_namespace = config_dict['bridge']['ros__parameters'].get('ego_namespace', 'ego_racecar')
+    opp_namespace = config_dict['bridge']['ros__parameters'].get('opp_namespace', 'opp_racecar')
+
+    def robot_description(car_name, accent_color):
+        """xacro command line for one car."""
+        # Quoted because the accent colour is an rgba string with spaces in it
+        # and Command shlex-splits what it is given.
+        return Command([
+            'xacro ', os.path.join(urdf_dir, 'racecar_mesh.xacro'),
+            ' car_name:=', car_name,
+            ' accent_color:="', accent_color, '"',
+            ' vehicle:=', vehicle_params,
+        ])
+
     ego_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='ego_robot_state_publisher',
         parameters=[
-            {'robot_description': Command([
-                'xacro ',
-                os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'urdf', ego_xacro)
-            ])},
+            {'robot_description': robot_description(
+                ego_namespace, EGO_ACCENT_COLOR)},
             {'use_sim_time': use_sim_time},
         ],
         remappings=[('/robot_description', 'ego_robot_description')]
     )
     # One publisher per opponent, matching the namespaces the bridge publishes
     # TF for: opp_racecar, opp_racecar2, opp_racecar3, ...
-    opp_namespace = config_dict['bridge']['ros__parameters'].get('opp_namespace', 'opp_racecar')
     opp_robot_publishers = []
     for i in range(1, num_agent):
         suffix = '' if i == 1 else str(i)  # first opponent keeps the unsuffixed names
@@ -215,11 +223,8 @@ def _launch_setup(context, *args, **kwargs):
             executable='robot_state_publisher',
             name='opp_robot_state_publisher' + suffix,
             parameters=[
-                {'robot_description': Command([
-                    'xacro ',
-                    os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'urdf', 'opp_racecar.xacro'),
-                    ' car_name:=', opp_namespace + suffix,
-                ])},
+                {'robot_description': robot_description(
+                    opp_namespace + suffix, OPP_ACCENT_COLOR)},
                 {'use_sim_time': use_sim_time},
             ],
             remappings=[('/robot_description', 'opp_robot_description' + suffix)]

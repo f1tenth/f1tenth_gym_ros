@@ -15,6 +15,9 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'launch', 'slam'), glob('launch/slam/*.yaml')),
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.xacro')),
+        # foxglove_bridge and RViz resolve the URDF's package:// mesh URIs out of
+        # the installed share directory, so the meshes have to land there too.
+        (os.path.join('share', package_name, 'meshes'), glob('meshes/*')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'config', 'rviz'), glob('config/rviz/*.rviz')),
         (os.path.join('share', package_name, 'config', 'foxglove'), glob('config/foxglove/*.json')),
