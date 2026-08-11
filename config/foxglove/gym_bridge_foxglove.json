@@ -135,6 +135,8 @@
       "followMode": "follow-pose",
       "fixedFrame": "map",
       "scene": {
+        "ignoreColladaUpAxis": true,
+        "meshUpAxis": "z_up",
         "transforms": {
           "visible": false
         }
