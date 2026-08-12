@@ -132,3 +132,6 @@ dmypy.json
 
 # Scaled map written by the launch file
 launch/temp/
+
+# f1tenth_gym cloned inside this repo per the README (native install)
+/f1tenth_gym/
