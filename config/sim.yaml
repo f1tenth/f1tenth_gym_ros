@@ -84,6 +84,26 @@ bridge:
     sy3: 0.0
     stheta3: 0.0
 
+    # opp 4 starting pose on map
+    sx4: -12.0
+    sy4: 8.5
+    stheta4: 3.14
+
+    # opp 5 starting pose on map
+    sx5: -5.5
+    sy5: 8.5
+    stheta5: 3.14
+
+    # opp 6 starting pose on map
+    sx6: 1.0
+    sy6: 8.5
+    stheta6: 3.14
+
+    # opp 7 starting pose on map
+    sx7: 8.0
+    sy7: 8.5
+    stheta7: 3.14
+
     # teleop
     kb_teleop: True
 
