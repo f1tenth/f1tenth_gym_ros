@@ -58,9 +58,18 @@ ARG GYM_REF=dev-humble
 # /usr/local, which takes precedence over the apt copies.
 RUN pip3 install --ignore-installed pip
 
-RUN git clone --depth 1 --branch ${GYM_REF} \
+# arm64 + Ubuntu 22.04 (glibc 2.35): PyQt6 6.7.1 is the newest release with a
+# compatible aarch64 wheel — newer ones need glibc >= 2.39, so pip falls back
+# to the sdist and fails looking for qmake (seen on Apple Silicon). Jazzy and
+# later have glibc >= 2.39; x86_64 is unaffected.
+RUN if [ "${ROS_DISTRO}" = "humble" ]; then \
+        echo 'pyqt6 == 6.7.1; platform_machine == "aarch64"' > /tmp/pip-constraints.txt; \
+    else \
+        touch /tmp/pip-constraints.txt; \
+    fi && \
+    git clone --depth 1 --branch ${GYM_REF} \
         https://github.com/f1tenth/f1tenth_gym.git /sim_ws/f1tenth_gym && \
-    pip3 install --ignore-installed -e /sim_ws/f1tenth_gym
+    pip3 install --ignore-installed -c /tmp/pip-constraints.txt -e /sim_ws/f1tenth_gym
 
 COPY . /sim_ws/src/f1tenth_gym_ros
 
