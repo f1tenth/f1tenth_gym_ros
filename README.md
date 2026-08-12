@@ -104,7 +104,7 @@ If Foxglove does not auto-open (for example in headless/container setups), open 
 - Browser: [https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765](https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765)
 - Studio: `foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765`
 
-To visualize the simulation, import the layout file `config/foxglove/gym_bridge_foxglove.json`. It ships with robot descriptions for four cars (the ego plus three opponents). The shipped `sim.yaml` carries start poses for up to eight cars, so to visualize agents five through eight, add a description for each extra opponent in the 3D panel's settings, subscribing to `/opp_robot_description4`, `/opp_robot_description5`, and so on. Foxglove is the recommended setup, but if you prefer RViz (old Gym setup), use `config/rviz/gym_bridge.rviz`.
+To visualize the simulation, import the layout file `config/foxglove/gym_bridge_foxglove.json`. It ships with robot descriptions for eight cars (the ego plus seven opponents), matching the start poses the shipped `sim.yaml` carries. To visualize even more agents, add a description for each extra opponent in the 3D panel's settings, subscribing to `/opp_robot_description8`, `/opp_robot_description9`, and so on. Foxglove is the recommended setup, but if you prefer RViz (old Gym setup), use `config/rviz/gym_bridge.rviz`.
 
 You can then run another node by creating another bash session in `tmux` or a separate terminal.
 

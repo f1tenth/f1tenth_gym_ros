@@ -31,7 +31,7 @@
           "showOutlines": false,
           "opacity": 1,
           "visible": true,
-          "label": "URDF",
+          "label": "URDF_ego",
           "instanceId": "b663b903-4ddb-4b31-9444-d3ecaa3dacf0",
           "layerId": "foxglove.Urdf",
           "sourceType": "topic",
@@ -55,7 +55,7 @@
           "visible": true,
           "instanceId": "e1031b0e-b009-492a-8910-a9ab5c1016fe",
           "layerId": "foxglove.Urdf",
-          "label": "URDF",
+          "label": "URDF_opp",
           "sourceType": "topic",
           "url": "",
           "filePath": "",
@@ -76,7 +76,7 @@
           "visible": true,
           "instanceId": "382e6f83-7912-4c69-8630-285c14850a65",
           "layerId": "foxglove.Urdf",
-          "label": "URDF",
+          "label": "URDF_opp2",
           "sourceType": "topic",
           "url": "",
           "filePath": "",
@@ -97,7 +97,7 @@
           "visible": true,
           "instanceId": "6ccd9716-f098-4bb9-b5bb-7aca6669cc33",
           "layerId": "foxglove.Urdf",
-          "label": "URDF",
+          "label": "URDF_opp3",
           "sourceType": "topic",
           "url": "",
           "filePath": "",
@@ -105,17 +105,101 @@
           "topic": "/opp_robot_description3",
           "framePrefix": "",
           "order": 5
+        },
+        "8e780760-ca21-4085-8102-3471d3a0ebb6": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "8e780760-ca21-4085-8102-3471d3a0ebb6",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp4",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description4",
+          "framePrefix": "",
+          "order": 5
+        },
+        "8360373a-c92b-4382-89f6-294d8a8a03a4": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "8360373a-c92b-4382-89f6-294d8a8a03a4",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp5",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description5",
+          "framePrefix": "",
+          "order": 5
+        },
+        "1fbd505c-66a0-4d6c-a7b6-3c5910619bc2": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "1fbd505c-66a0-4d6c-a7b6-3c5910619bc2",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp6",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description6",
+          "framePrefix": "",
+          "order": 5
+        },
+        "50de906b-a34c-4a42-b4ca-77167830a4dc": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "50de906b-a34c-4a42-b4ca-77167830a4dc",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp7",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description7",
+          "framePrefix": "",
+          "order": 5
         }
       },
       "cameraState": {
         "perspective": true,
-        "distance": 19.999999999998618,
-        "phi": 60.000000000000455,
-        "thetaOffset": 45.00000000000291,
+        "distance": 18.999999999959574,
+        "phi": 69.34896060428689,
+        "thetaOffset": 82.80345869179048,
         "targetOffset": [
-          -8.911253059531552,
-          0.03503782712386546,
-          -4.859471553016986e-17
+          3.572897032583405,
+          2.2595069796717047,
+          -0.01589464937541028
         ],
         "target": [
           0,
@@ -139,7 +223,8 @@
         "meshUpAxis": "z_up",
         "transforms": {
           "visible": false
-        }
+        },
+        "backgroundColor": "#000000"
       },
       "transforms": {
         "frame:map": {
@@ -148,7 +233,9 @@
       },
       "topics": {
         "/map": {
-          "visible": true
+          "visible": true,
+          "minColor": "#5f5f5fff",
+          "maxColor": "#ffffffff"
         },
         "/move_base_simple/goal": {
           "visible": false
@@ -166,6 +253,33 @@
             "#12fd00ff"
           ],
           "pointSize": 5
+        },
+        "/waypoint_path_points": {
+          "visible": true
+        },
+        "/waypoint_path_colored": {
+          "visible": true
+        },
+        "/mppi/optimal_trajectory": {
+          "visible": true
+        },
+        "/mppi/reference": {
+          "visible": true,
+          "color": "#715bffff"
+        },
+        "/mppi/sampled_trajectories": {
+          "visible": true,
+          "color": "#beb4ff40",
+          "showOutlines": false
+        },
+        "/opponent/detection_markers": {
+          "visible": false
+        },
+        "/opponent/markers": {
+          "visible": true
+        },
+        "/opponent/predicted_path": {
+          "visible": true
         }
       },
       "publish": {
@@ -178,59 +292,8 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "synchronize": false
-    },
-    "RawMessages!os6rgs": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "",
-      "fontSize": 12,
-      "defaultExpanded": false
-    },
-    "Image!3mnp456": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 45,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {},
-      "synchronize": false
+      "synchronize": false,
+      "followTf": "ego_racecar/base_link"
     }
   },
   "globalVariables": {},
@@ -241,15 +304,5 @@
   "drawerConfig": {
     "tracks": []
   },
-  "layout": {
-    "first": "3D!18i6zy7",
-    "second": {
-      "first": "Image!3mnp456",
-      "second": "RawMessages!os6rgs",
-      "direction": "column",
-      "splitPercentage": 30
-    },
-    "direction": "row",
-    "splitPercentage": 70
-  }
+  "layout": "3D!18i6zy7"
 }
