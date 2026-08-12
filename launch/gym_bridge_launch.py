@@ -29,6 +29,7 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo, Opaqu
 from launch.conditions import IfCondition, LaunchConfigurationEquals
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
 # Tints the accent mesh so ego and opponents stay as easy to tell apart as the
@@ -195,12 +196,14 @@ def _launch_setup(context, *args, **kwargs):
         """xacro command line for one car."""
         # Quoted because the accent colour is an rgba string with spaces in it
         # and Command shlex-splits what it is given.
-        return Command([
+        # ParameterValue(value_type=str) stops launch from yaml-parsing the URDF
+        # string, which blows up on any "colon + space" in the xacro output.
+        return ParameterValue(Command([
             'xacro ', os.path.join(urdf_dir, 'racecar_mesh.xacro'),
             ' car_name:=', car_name,
             ' accent_color:="', accent_color, '"',
             ' vehicle:=', vehicle_params,
-        ])
+        ]), value_type=str)
 
     ego_robot_publisher = Node(
         package='robot_state_publisher',
