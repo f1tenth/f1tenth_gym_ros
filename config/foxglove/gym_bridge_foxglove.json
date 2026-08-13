@@ -193,13 +193,13 @@
       },
       "cameraState": {
         "perspective": true,
-        "distance": 18.999999999959574,
-        "phi": 69.34896060428689,
-        "thetaOffset": 82.80345869179048,
+        "distance": 19.999999999998618,
+        "phi": 60.000000000000455,
+        "thetaOffset": 45.00000000000291,
         "targetOffset": [
-          3.572897032583405,
-          2.2595069796717047,
-          -0.01589464937541028
+          -8.911253059531552,
+          0.03503782712386546,
+          -4.859471553016986e-17
         ],
         "target": [
           0,
@@ -223,8 +223,7 @@
         "meshUpAxis": "z_up",
         "transforms": {
           "visible": false
-        },
-        "backgroundColor": "#000000"
+        }
       },
       "transforms": {
         "frame:map": {
@@ -233,9 +232,7 @@
       },
       "topics": {
         "/map": {
-          "visible": true,
-          "minColor": "#5f5f5fff",
-          "maxColor": "#ffffffff"
+          "visible": true
         },
         "/move_base_simple/goal": {
           "visible": false
@@ -253,33 +250,6 @@
             "#12fd00ff"
           ],
           "pointSize": 5
-        },
-        "/waypoint_path_points": {
-          "visible": true
-        },
-        "/waypoint_path_colored": {
-          "visible": true
-        },
-        "/mppi/optimal_trajectory": {
-          "visible": true
-        },
-        "/mppi/reference": {
-          "visible": true,
-          "color": "#715bffff"
-        },
-        "/mppi/sampled_trajectories": {
-          "visible": true,
-          "color": "#beb4ff40",
-          "showOutlines": false
-        },
-        "/opponent/detection_markers": {
-          "visible": false
-        },
-        "/opponent/markers": {
-          "visible": true
-        },
-        "/opponent/predicted_path": {
-          "visible": true
         }
       },
       "publish": {
