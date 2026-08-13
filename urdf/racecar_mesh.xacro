@@ -5,6 +5,11 @@
 
   Written by scripts/usd_to_mesh.py from meshes/roboracer.usd. Re-run that script
   after changing the USD; hand edits here are lost on the next regeneration.
+  NOTE - the wheel-spin structure below (back_*_hinge links + continuous wheel
+  joints, animated by the gym bridge) is a hand edit that must be folded into
+  usd_to_mesh.py before the next regeneration. Avoid "colon + space" anywhere
+  in this file; unless robot_description is wrapped in ParameterValue, launch
+  yaml-parses the URDF string and a colon turns it into a mapping.
 
   Same link and joint names as urdf/ego_racecar.xacro so TF, the gym bridge and
   anything downstream keep working - only the geometry changed, from primitive
@@ -36,6 +41,25 @@
     <xacro:property name="lr" value="${1.508760}"/>
   </xacro:if>
   <xacro:property name="mesh_dir" value="package://f1tenth_gym_ros/meshes"/>
+
+  <!-- ============================ WHEEL ALIGNMENT ============================
+       Per-wheel visual rpy corrections [deg]. All four wheels are baked from the
+       same source model but at their posed orientation in the USD scene, so each
+       glb carries a slightly different camber+toe tilt off its true axle. Any
+       residual angle between the mesh axle and link y wobbles once the bridge
+       spins the wheel TF, so the corrections must be exact per wheel - these are
+       measured from the mesh geometry by scripts/measure_wheel_alignment.py
+       (rerun it and paste new values after re-exporting the meshes). -->
+  <xacro:property name="align_fl_deg" value="${[-3.574, 0.068, 2.177]}"/>
+  <xacro:property name="align_fr_deg" value="${[1.899, -0.046, 2.803]}"/>
+  <xacro:property name="align_rl_deg" value="${[-2.543, -0.005, -0.246]}"/>
+  <xacro:property name="align_rr_deg" value="${[2.932, 0.007, -0.290]}"/>
+  <!-- =========================================================================== -->
+  <xacro:property name="d2r" value="${pi / 180}"/>
+  <xacro:property name="align_fl" value="${align_fl_deg[0]*d2r} ${align_fl_deg[1]*d2r} ${align_fl_deg[2]*d2r}"/>
+  <xacro:property name="align_fr" value="${align_fr_deg[0]*d2r} ${align_fr_deg[1]*d2r} ${align_fr_deg[2]*d2r}"/>
+  <xacro:property name="align_rl" value="${align_rl_deg[0]*d2r} ${align_rl_deg[1]*d2r} ${align_rl_deg[2]*d2r}"/>
+  <xacro:property name="align_rr" value="${align_rr_deg[0]*d2r} ${align_rr_deg[1]*d2r} ${align_rr_deg[2]*d2r}"/>
 
   <material name="${car_name}_accent">
     <color rgba="$(arg accent_color)"/>
@@ -76,28 +100,48 @@
     </visual>
   </link>
 
-  <joint name="base_to_back_left_wheel" type="fixed">
+  <!-- Rear wheels hang off fixed hinge frames like the fronts do, so the bridge
+       can publish their rolling rotation (about y, the axle) as a plain TF. -->
+  <joint name="base_to_back_left_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
-    <child link="${car_name}/back_left_wheel"/>
+    <child link="${car_name}/back_left_hinge"/>
     <origin xyz="${s * -0.000833 - lr} ${s * 0.130772} ${s * 0.051076}"/>
+  </joint>
+
+  <link name="${car_name}/back_left_hinge"/>
+
+  <joint name="back_left_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/back_left_hinge"/>
+    <child link="${car_name}/back_left_wheel"/>
+    <axis xyz="0 1 0"/>
   </joint>
 
   <link name="${car_name}/back_left_wheel">
     <visual>
+      <origin rpy="${align_rl}"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_wheel_rear_left.glb" scale="${s} ${s} ${s}"/>
       </geometry>
     </visual>
   </link>
 
-  <joint name="base_to_back_right_wheel" type="fixed">
+  <joint name="base_to_back_right_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
-    <child link="${car_name}/back_right_wheel"/>
+    <child link="${car_name}/back_right_hinge"/>
     <origin xyz="${s * 0.000833 - lr} ${s * -0.132075} ${s * 0.050856}"/>
+  </joint>
+
+  <link name="${car_name}/back_right_hinge"/>
+
+  <joint name="back_right_hinge_to_wheel" type="continuous">
+    <parent link="${car_name}/back_right_hinge"/>
+    <child link="${car_name}/back_right_wheel"/>
+    <axis xyz="0 1 0"/>
   </joint>
 
   <link name="${car_name}/back_right_wheel">
     <visual>
+      <origin rpy="${align_rr}"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_wheel_rear_right.glb" scale="${s} ${s} ${s}"/>
       </geometry>
@@ -122,6 +166,7 @@
 
   <link name="${car_name}/front_left_wheel">
     <visual>
+      <origin rpy="${align_fl}"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_wheel_front_left.glb" scale="${s} ${s} ${s}"/>
       </geometry>
@@ -144,6 +189,7 @@
 
   <link name="${car_name}/front_right_wheel">
     <visual>
+      <origin rpy="${align_fr}"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_wheel_front_right.glb" scale="${s} ${s} ${s}"/>
       </geometry>

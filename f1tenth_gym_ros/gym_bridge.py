@@ -73,6 +73,13 @@ def opp_suffix(opp_index):
     return '' if opp_index == 1 else str(opp_index)
 
 
+# Visual wheel spin. Radius matches the wheel meshes in urdf/racecar_mesh.xacro
+# (0.102 m diameter at f1tenth size); the per-platform factors are the same
+# wheelbase ratios that xacro scales the meshes by.
+WHEEL_RADIUS = 0.051
+VEHICLE_MESH_SCALE = {'f1tenth': 1.0, 'f1fifth': 1.656456, 'fullscale': 7.449941}
+
+
 def _resolve_yaml_path(base_path: pathlib.Path) -> pathlib.Path:
     if base_path.suffix in (".yaml", ".yml"):
         return base_path
@@ -155,6 +162,8 @@ class Opponent:
         self.speed = [0.0, 0.0, 0.0]
         self.requested_speed = 0.0
         self.steer = 0.0
+        self.v = 0.0  # signed longitudinal speed, drives the wheel spin
+        self.wheel_angle = 0.0
         self.scan = []
         self.scan_pub = None
         self.odom_pub = None
@@ -235,6 +244,7 @@ class GymBridge(Node):
             self.vehicle_params = get_f1fifth_vehicle_parameters()
         else:
             raise ValueError('vehicle_params should be either f1tenth, fullscale, or f1fifth.')
+        self.wheel_radius = WHEEL_RADIUS * VEHICLE_MESH_SCALE[vehicle_params_key]
 
         scale = self.get_parameter('scale').value
         map_path = self.get_parameter('map_path').value
@@ -296,9 +306,10 @@ class GymBridge(Node):
             LoopCounterMode.FRENET_BASED if has_reference_line else LoopCounterMode.TOGGLE
         )
         compute_frenet = has_reference_line
+        self.sim_timestep = 0.01
         simulation_cfg = SimulationConfig(
-            timestep=0.01,
-            integrator_timestep=0.01,
+            timestep=self.sim_timestep,
+            integrator_timestep=self.sim_timestep,
             integrator=IntegratorType.RK4,
             dynamics_model=DynamicModel.ST,
             loop_counter=loop_counter,
@@ -333,6 +344,8 @@ class GymBridge(Node):
         self.ego_requested_speed = 0.0
         self.ego_steer = 0.0
         self.ego_collision = False
+        self.ego_v = 0.0  # signed longitudinal speed, drives the wheel spin
+        self.ego_wheel_angle = 0.0
         ego_scan_topic = self.get_parameter('ego_scan_topic').value
         ego_drive_topic = self.get_parameter('ego_drive_topic').value
         self.angle_min = self.lidar_cfg.angle_min
@@ -553,6 +566,18 @@ class GymBridge(Node):
         actions += [[opp.steer, opp.requested_speed] for opp in self.opps]
         _, _, self.done, _, _ = self.env.step(np.array(actions))
         self._update_sim_state()
+
+        # Advance the visual wheel spin by the no-slip rolling rate v/r. The ST
+        # dynamics model carries no wheel-speed states, so this is the closest
+        # thing to the actual wheel RPM the sim can provide.
+        two_pi = 2.0 * math.pi
+        self.ego_wheel_angle = (
+            self.ego_wheel_angle + self.ego_v / self.wheel_radius * self.sim_timestep
+        ) % two_pi
+        for opp in self.opps:
+            opp.wheel_angle = (
+                opp.wheel_angle + opp.v / self.wheel_radius * self.sim_timestep
+            ) % two_pi
         if self.get_parameter('use_sim_time_bridge').value:
             clock_msg = Clock()
             sim_time = self.env.unwrapped.sim_time
@@ -608,6 +633,7 @@ class GymBridge(Node):
         self.ego_pose[2] = float(poses[0, 2])
         ego_speed = float(std_state[0, 3])
         ego_beta = float(std_state[0, 6])
+        self.ego_v = ego_speed
         self.ego_speed[0] = float(ego_speed * np.cos(ego_beta))
         self.ego_speed[1] = float(ego_speed * np.sin(ego_beta))
         self.ego_speed[2] = float(std_state[0, 5])
@@ -619,6 +645,7 @@ class GymBridge(Node):
             opp.pose[2] = float(poses[i, 2])
             opp_speed = float(std_state[i, 3])
             opp_beta = float(std_state[i, 6])
+            opp.v = opp_speed
             opp.speed[0] = float(opp_speed * np.cos(opp_beta))
             opp.speed[1] = float(opp_speed * np.sin(opp_beta))
             opp.speed[2] = float(std_state[i, 5])
@@ -672,22 +699,28 @@ class GymBridge(Node):
             self.br.sendTransform(ts_msg)
 
     def _publish_wheel_transforms(self, ts):
-        for namespace, steer in [(self.ego_namespace, self.ego_steer)] + [
-            (opp.namespace, opp.steer) for opp in self.opps
-        ]:
+        for namespace, steer, spin in [
+            (self.ego_namespace, self.ego_steer, self.ego_wheel_angle)
+        ] + [(opp.namespace, opp.steer, opp.wheel_angle) for opp in self.opps]:
+            # Front wheels steer about z first, then roll about their own
+            # (steered) axle; rear wheels only roll. 'ZY' = intrinsic Rz @ Ry.
+            front_quat = Rotation.from_euler('ZY', [steer, spin]).as_quat()
+            rear_quat = Rotation.from_euler('y', spin).as_quat()
             wheel_ts = TransformStamped()
-            wheel_quat = Rotation.from_euler('xyz', [0., 0., steer]).as_quat()
-            wheel_ts.transform.rotation.x = wheel_quat[0]
-            wheel_ts.transform.rotation.y = wheel_quat[1]
-            wheel_ts.transform.rotation.z = wheel_quat[2]
-            wheel_ts.transform.rotation.w = wheel_quat[3]
             wheel_ts.header.stamp = ts
-            wheel_ts.header.frame_id = namespace + '/front_left_hinge'
-            wheel_ts.child_frame_id = namespace + '/front_left_wheel'
-            self.br.sendTransform(wheel_ts)
-            wheel_ts.header.frame_id = namespace + '/front_right_hinge'
-            wheel_ts.child_frame_id = namespace + '/front_right_wheel'
-            self.br.sendTransform(wheel_ts)
+            for hinge, wheel, quat in (
+                ('front_left_hinge', 'front_left_wheel', front_quat),
+                ('front_right_hinge', 'front_right_wheel', front_quat),
+                ('back_left_hinge', 'back_left_wheel', rear_quat),
+                ('back_right_hinge', 'back_right_wheel', rear_quat),
+            ):
+                wheel_ts.transform.rotation.x = quat[0]
+                wheel_ts.transform.rotation.y = quat[1]
+                wheel_ts.transform.rotation.z = quat[2]
+                wheel_ts.transform.rotation.w = quat[3]
+                wheel_ts.header.frame_id = namespace + '/' + hinge
+                wheel_ts.child_frame_id = namespace + '/' + wheel
+                self.br.sendTransform(wheel_ts)
 
     def _publish_laser_transforms(self, ts):
         scan_quat = Rotation.from_euler('xyz', [0.0, 0.0, self.scan_tf[2]]).as_quat()

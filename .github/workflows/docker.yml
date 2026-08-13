@@ -1,0 +1,55 @@
+name: Docker
+
+on:
+  push:
+    branches: [ main, 'v*', 'dev*' ]
+  pull_request:
+    branches: [ main, 'v*', 'dev*' ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ros_distro: [humble, jazzy]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          build-args: |
+            ROS_DISTRO=${{ matrix.ros_distro }}
+          tags: f1tenth_gym_ros:${{ matrix.ros_distro }}
+
+      - name: Launch sim in container
+        run: |
+          docker run -d --name sim f1tenth_gym_ros:${{ matrix.ros_distro }} -c \
+            'source /opt/ros/$ROS_DISTRO/setup.bash && source /sim_ws/install/setup.bash && \
+             ros2 launch f1tenth_gym_ros gym_bridge_launch.py open_foxglove:=false'
+
+      - name: Check expected topics
+        run: |
+          # generous wait: numba JIT in gym_bridge delays topic creation
+          sleep 60
+          docker exec sim bash -c \
+            'source /opt/ros/$ROS_DISTRO/setup.bash && source /sim_ws/install/setup.bash && ros2 topic list' \
+            | tee topics.txt
+          grep -qx /scan topics.txt
+          grep -qx /ego_racecar/odom topics.txt
+
+      - name: Show sim logs on failure
+        if: failure()
+        run: docker logs sim || true
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f sim || true

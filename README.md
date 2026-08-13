@@ -52,46 +52,41 @@ Once you're done and everything is installed, skip to the [Launching the Simulat
 ## Docker ##
 (Alternative install, skip if you have already used the native install above)
 
-### With an NVIDIA gpu:
-**Install the following dependencies:**
+Visualization uses Foxglove in your host browser, so no GPU passthrough or display forwarding is needed.
 
-- **Docker** Follow the instructions [here](https://docs.docker.com/install/linux/docker-ce/ubuntu/) to install Docker. A short tutorial can be found [here](https://docs.docker.com/get-started/) if you're not familiar with Docker. If you followed the post-installation steps you won't have to prepend your docker and docker-compose commands with sudo.
-- **nvidia-docker2**, follow the instructions [here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) if you have a support GPU. It is also possible to use Intel integrated graphics to forward the display, see details instructions from the Rocker repo. If you are on windows with an NVIDIA GPU, you'll have to use WSL (Windows Subsystem for Linux). Please refer to the guide [here](https://developer.nvidia.com/cuda/wsl), [here](https://docs.nvidia.com/cuda/wsl-user-guide/index.html), and [here](https://dilililabs.com/zh/blog/2021/01/26/deploying-docker-with-gpu-support-on-windows-subsystem-for-linux/).
-- **rocker** [https://github.com/osrf/rocker](https://github.com/osrf/rocker). This is a tool developed by OSRF to run Docker images with local support injected. We use it for GUI forwarding. If you're on Windows, WSL should also support this.
-
-**Installing the simulation:**
+**Install [Docker Engine](https://docs.docker.com/engine/install/)** (includes the `docker compose` plugin). If you follow the post-installation steps you won't have to prepend your docker commands with sudo.
 
 1. Clone this repo
-2. Build the docker image by:
+2. Build the image and bring up the sim container:
 ```bash
-$ cd f1tenth_gym_ros
-$ docker build -t f1tenth_gym_ros -f Dockerfile .
+cd f1tenth_gym_ros
+docker compose up -d --build
 ```
-3. To run the containerized environment, start a docker container by running the following. (example showned here with nvidia-docker support). By running this, the current directory that you're in (should be `f1tenth_gym_ros`) is mounted in the container at `/sim_ws/src/f1tenth_gym_ros`. Which means that the changes you make in the repo on the host system will also reflect in the container.
-```bash
-$ rocker --nvidia --x11 --volume .:/sim_ws/src/f1tenth_gym_ros -- f1tenth_gym_ros
-```
+This mounts the repo at `/sim_ws/src/f1tenth_gym_ros` (changes you make on the host also reflect in the container) and publishes the Foxglove bridge websocket on port 8765. `f1tenth_gym` is cloned and installed inside the image at `/sim_ws/f1tenth_gym`.
 
-### Without an NVIDIA gpu:
+Build args (passed with `docker compose build --build-arg ...` or `docker build --build-arg ...`):
+- `ROS_DISTRO`: ROS 2 distro to build for, `humble` (default) or `jazzy`.
+- `GYM_REF`: `f1tenth_gym` branch or tag to install, defaults to `dev-humble`.
 
-**Install the following dependencies:**
+`ROS_DISTRO=lyrical` (Ubuntu 26.04) is expected to work as soon as Nav2 is released for Lyrical — as of August 2026 `ros-lyrical-nav2-map-server` is not yet available, which is the only missing dependency (the Python stack installs cleanly on 26.04).
 
-If your system does not support nvidia-docker2, noVNC will have to be used to forward the display.
-- Again you'll need **Docker**. Follow the instruction from above.
-- Additionally you'll need **docker-compose**. Follow the instruction [here](https://docs.docker.com/compose/install/) to install docker-compose.
-
-**Installing the simulation:**
-
-1. Clone this repo 
-2. Bringup the novnc container and the sim container with docker-compose:
-```bash
-docker-compose up
-``` 
-3. In a separate terminal, run the following, and you'll have the a bash session in the simulation container. `tmux` is available for convenience.
+3. In a separate terminal, run the following, and you'll have a bash session in the simulation container — with ROS 2 and the workspace already sourced. `tmux` is available for convenience.
 ```bash
 docker exec -it f1tenth_gym_ros-sim-1 /bin/bash
 ```
-4. In your browser, navigate to [http://localhost:8080/vnc.html](http://localhost:8080/vnc.html), you should see the noVNC logo with the connect button. Click the connect button to connect to the session.
+4. Launch the sim inside the container (`open_foxglove:=false` because the container cannot open a browser):
+```bash
+ros2 launch f1tenth_gym_ros gym_bridge_launch.py open_foxglove:=false
+```
+5. On the host, open Foxglove and connect to `ws://localhost:8765`: [https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765](https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765)
+
+### RViz fallback (noVNC)
+
+If you prefer RViz over Foxglove, a noVNC service can forward the display to your browser:
+```bash
+docker compose --profile novnc up -d
+```
+Then run `rviz2 -d src/f1tenth_gym_ros/config/rviz/gym_bridge.rviz` inside the sim container and navigate to [http://localhost:8080/vnc.html](http://localhost:8080/vnc.html).
 
 # Launching the Simulation
 
@@ -109,7 +104,7 @@ If Foxglove does not auto-open (for example in headless/container setups), open 
 - Browser: [https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765](https://app.foxglove.dev/?ds=foxglove-websocket&ds.url=ws://localhost:8765)
 - Studio: `foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765`
 
-To visualize the simulation, import the layout file `config/foxglove/gym_bridge_foxglove.json`. It ships with robot descriptions for four cars (the ego plus three opponents), so it covers every agent count the shipped `sim.yaml` can start by default. To visualize more than four agents, add a description for each extra opponent in the 3D panel's settings, subscribing to `/opp_robot_description4`, `/opp_robot_description5`, and so on. Foxglove is the recommended setup, but if you prefer RViz (old Gym setup), use `config/rviz/gym_bridge.rviz`.
+To visualize the simulation, import the layout file `config/foxglove/gym_bridge_foxglove.json`. It ships with robot descriptions for eight cars (the ego plus seven opponents), matching the start poses the shipped `sim.yaml` carries. To visualize even more agents, add a description for each extra opponent in the 3D panel's settings, subscribing to `/opp_robot_description8`, `/opp_robot_description9`, and so on. Foxglove is the recommended setup, but if you prefer RViz (old Gym setup), use `config/rviz/gym_bridge.rviz`.
 
 You can then run another node by creating another bash session in `tmux` or a separate terminal.
 
@@ -121,7 +116,7 @@ You can then run another node by creating another bash session in `tmux` or a se
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py num_agent:=4
 ```
-- The ego and opponent starting poses can also be changed via parameters (`sx`/`sy`/`stheta` for the ego, `sx1`/`sy1`/`stheta1` onwards for the opponents), these are in the global map coordinate frame. Every agent you ask for needs a start pose: if `num_agent` is 3 but `sx2`/`sy2`/`stheta2` are missing, the bridge stops and tells you which parameters to add rather than guessing a spot on the map for you. The poses shipped in `sim.yaml` line four cars up along the Levine straight, so `num_agent:=4` works out of the box; add `sx4`/`sy4`/`stheta4` and so on to race more, and change them when you change the map.
+- The ego and opponent starting poses can also be changed via parameters (`sx`/`sy`/`stheta` for the ego, `sx1`/`sy1`/`stheta1` onwards for the opponents), these are in the global map coordinate frame. Every agent you ask for needs a start pose: if `num_agent` is 3 but `sx2`/`sy2`/`stheta2` are missing, the bridge stops and tells you which parameters to add rather than guessing a spot on the map for you. The poses shipped in `sim.yaml` line up eight cars on the Levine map (two rows of four), so anything up to `num_agent:=8` works out of the box; add `sx8`/`sy8`/`stheta8` and so on to race more, and change them when you change the map.
 - A different sim config can be selected at launch time. The value is a file name in `config/`, a package relative path, or an absolute path:
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py config:=my_sim.yaml
