@@ -165,10 +165,12 @@ class Opponent:
         self.v = 0.0  # signed longitudinal speed, drives the wheel spin
         self.wheel_angle = 0.0
         self.scan = []
+        self.collision = False
         self.scan_pub = None
         self.odom_pub = None
         self.ego_odom_pub = None
         self.odom_in_ego_pub = None
+        self.collision_pub = None
         self.drive_sub = None
         self.reset_sub = None
 
@@ -410,12 +412,16 @@ class GymBridge(Node):
         # publishers
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
+        self.ego_collision_pub = self.create_publisher(
+            Bool, self.ego_namespace + '/collision', 10)
         self.ego_drive_published = False
         for opp in self.opps:
             opp.scan_pub = self.create_publisher(LaserScan, opp.scan_topic, 10)
             opp.odom_pub = self.create_publisher(Odometry, opp.odom_topic, 10)
             opp.ego_odom_pub = self.create_publisher(Odometry, opp.ego_odom_topic, 10)
             opp.odom_in_ego_pub = self.create_publisher(Odometry, opp.odom_in_ego_topic, 10)
+            opp.collision_pub = self.create_publisher(
+                Bool, opp.namespace + '/collision', 10)
 
         if self.get_parameter('use_sim_time_bridge').value:
             self.get_logger().info('Using simulation time. Will publish /clock topic. Drive and odom will be as fast as possible.')
@@ -603,6 +609,13 @@ class GymBridge(Node):
             opp.scan = [float(x) for x in opp.scan]
             opp.scan_pub.publish(self._make_scan_msg(ts, opp.namespace, opp.scan))
 
+        # pub collision state (instantaneous; the sim clears it once the car
+        # is stopped or reset, so consumers that care about "ever collided"
+        # must latch it themselves)
+        self.ego_collision_pub.publish(Bool(data=self.ego_collision))
+        for opp in self.opps:
+            opp.collision_pub.publish(Bool(data=opp.collision))
+
         # pub tf
         self._publish_odom(ts)
         self._publish_transforms(ts)
@@ -626,6 +639,14 @@ class GymBridge(Node):
         scans = sim_state.scans
         poses = sim_state.poses
         std_state = sim_state.standard_state
+        collisions = sim_state.collisions
+
+        was_in_collision = self.ego_collision
+        self.ego_collision = bool(collisions[0])
+        if self.ego_collision and not was_in_collision:
+            self.get_logger().warn(
+                f'{self.ego_namespace} hit something at '
+                f'({poses[0, 0]:.2f}, {poses[0, 1]:.2f})')
 
         self.ego_scan = list(scans[0])
         self.ego_pose[0] = float(poses[0, 0])
@@ -639,6 +660,12 @@ class GymBridge(Node):
         self.ego_speed[2] = float(std_state[0, 5])
 
         for i, opp in enumerate(self.opps, start=1):
+            was_in_collision = opp.collision
+            opp.collision = bool(collisions[i])
+            if opp.collision and not was_in_collision:
+                self.get_logger().warn(
+                    f'{opp.namespace} hit something at '
+                    f'({poses[i, 0]:.2f}, {poses[i, 1]:.2f})')
             opp.scan = list(scans[i])
             opp.pose[0] = float(poses[i, 0])
             opp.pose[1] = float(poses[i, 1])
