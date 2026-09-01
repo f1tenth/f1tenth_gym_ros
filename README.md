@@ -140,6 +140,8 @@ In **single** agent:
 
 `/ego_racecar/odom`: The ego agent's odometry
 
+`/ego_racecar/collision`: `std_msgs/Bool`, true while the sim reports the ego agent in collision (the sim also zeroes the car's velocity). Instantaneous, not latched: it clears once the car is stopped or reset, so latch it yourself if you need "ever collided".
+
 `/map`: The map of the environment
 
 A `tf` tree is also maintained.
@@ -155,6 +157,8 @@ In addition to the topics available in the single agent scenario, these topics a
 `/opp_racecar/odom`, `/opp_racecar2/odom`, `/opp_racecar3/odom`: The opponent agents' odometry
 
 `/opp_racecar/opp_odom`, `/opp_racecar2/opp_odom`, `/opp_racecar3/opp_odom`: The ego agent's odometry for each opponent agent's planner
+
+`/opp_racecar/collision`, `/opp_racecar2/collision`, `/opp_racecar3/collision`: Collision state for each opponent agent, same semantics as `/ego_racecar/collision`
 
 # Topics subscribed by the simulation
 
