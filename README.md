@@ -8,16 +8,14 @@ This is a ROS 2 bridge for the [F1TENTH gym environment](https://github.com/f1te
 - Ubuntu 24.04 with ROS 2 Jazzy, natively (recommended).
 - Windows 10/11, macOS and Linux through Docker or a VM with Ubuntu 24.04, with Foxglove in the host browser (no GPU or display forwarding needed).
 
-The gym requires Python 3.12 or newer, which is what Ubuntu 24.04 ships. Ubuntu 22.04 / ROS 2 Humble (Python 3.10) cannot run this version; Humble users should stay on the `dev-humble` branches of both repositories.
-
-Physics runs on the CPU. A GPU is not needed and, for the bridge, not used even when present.
+The gym requires Python 3.12 or newer, which is what Ubuntu 24.04 ships with.
 
 ## Native on Ubuntu 24.04 (recommended)
 Set up a native Ubuntu 24.04 either on your own machine (dual boot or main OS) or in a virtual machine with your favourite virtualization software ([VMWare](https://www.vmware.com/products/desktop-hypervisor/workstation-and-fusion) recommended).
 
 ### Step-by-step install (fresh machine)
 1. **Install ROS 2 Jazzy.** Follow the instructions [here](https://docs.ros.org/en/jazzy/Installation.html) (the `ros-jazzy-desktop` package).
-2. **Install the system packages the gym needs.** Git, the Python venv module, and the runtime libraries for the gym's Qt/OpenGL renderer. `libxcb-cursor0` is not on a stock 24.04 desktop and its absence breaks every Qt window:
+2. **Install the system packages the gym needs.** Git, the Python venv module, and the runtime libraries for the gym's Qt/OpenGL renderer:
    ```bash
    sudo apt update
    sudo apt install -y git python3-venv python3-pip \
@@ -42,8 +40,7 @@ Set up a native Ubuntu 24.04 either on your own machine (dual boot or main OS) o
    cd $HOME/sim_ws/src/f1tenth_gym_ros
    git clone -b dev-jax https://github.com/f1tenth/f1tenth_gym.git
    ```
-   If the `f1tenth_gym` directory already exists (some clones include it), skip the clone.
-6. **Install `f1tenth_gym` into the venv.** With the venv still active, an editable install is required; the gym stores downloaded tracks inside its own clone:
+6. **Install `f1tenth_gym` into the venv.** With the venv still active, an editable install is required:
    ```bash
    pip install -e $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym
    ```
@@ -70,8 +67,8 @@ pip install -e "$HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym[cuda]"
 ```
 The bridge keeps running on the CPU and holds no GPU memory. See the gym's [RL guide](https://f1tenth-gym.readthedocs.io/en/latest/rl.html) for the training side.
 
-## Docker - 
-Only if you want to skip native / VM.
+## Docker 
+Only if you do not have access to a native Ubuntu install or an Ubuntu VM.
 
 Visualization uses Foxglove in your host browser, so no GPU passthrough or display forwarding is needed.
 
@@ -88,7 +85,6 @@ This mounts the repo at `/sim_ws/src/f1tenth_gym_ros` (changes you make on the h
 Build args (passed with `docker compose build --build-arg ...` or `docker build --build-arg ...`):
 - `ROS_DISTRO`: ROS 2 distro to build for, `jazzy` (default).
 - `GYM_REF`: `f1tenth_gym` branch or tag to clone, defaults to `dev-jax`.
-- `GYM_SOURCE`: `git` (default) clones `GYM_REF`; `local` copies the `f1tenth_gym/` clone nested inside this repo instead, so local gym changes can be tested in the container. With compose: `GYM_SOURCE=local docker compose up -d --build`.
 
 `ROS_DISTRO=lyrical` (Ubuntu 26.04) is expected to work as soon as Nav2 is released for Lyrical; as of August 2026 `ros-lyrical-nav2-map-server` is not yet available, which is the only missing dependency.
 
@@ -119,7 +115,7 @@ source /opt/ros/jazzy/setup.bash
 source $HOME/sim_ws/install/setup.bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py
 ```
-In the Docker container the sourcing is already done for you, and `tmux` lets you open more shells in the same terminal.
+In the Docker container the sourcing is already done for you, and `tmux` is included for your convenience so you can open multiple bash shells in the same terminal.
 
 The first scan appears about four seconds after launch: the gym compiles its contact and LiDAR kernels on the first simulation step.
 
@@ -136,13 +132,13 @@ You can then run another node in another shell (`tmux` or a separate terminal).
 # Configuring the simulation
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but it is recommended to leave them unchanged.
-- The map can be changed via the `map_path` parameter, a package-relative path like `maps/levine` or `maps/Spielberg`. The map follows the ROS convention: the image file and the `yaml` file live together. Lap counting additionally needs a `<map>_centerline.csv` next to the yaml (optionally a `<map>_raceline.csv` too), in the format the gym's tracks use. `maps/Spielberg` ships both; the levine maps have none, so their lap counters stay at 0.
-- The `num_agents` parameter sets how many cars to simulate. The first agent is the ego car, all further agents are opponents, and a robot model is spawned for every opponent. There is no upper limit; you are bounded by how many start poses you define and by how fast your machine can step the physics. The shipped Foxglove layout draws eight cars; past that, add a robot description panel per extra opponent. You can either set it in `sim.yaml`, or override it at launch time without editing the config:
+- The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention: the image file and the `yaml` file should live together. Lap counting additionally needs a `<map>_centerline.csv` next to the yaml (optionally a `<map>_raceline.csv` too), in the format the gym's tracks use. `maps/Spielberg` ships both. The levine maps have none, so their lap counters stay at 0.
+- The `num_agents` parameter configures how many cars to simulate. The first agent is the ego car, all additional agents are opponents, and a robot model is spawned for every opponent. There is no upper limit; you are bounded by how many start poses you define and by how fast your machine can step the physics. The shipped Foxglove layout draws eight cars; past that, add a robot description panel per extra opponent. You can either set it in `sim.yaml`, or override it at launch time without editing the config:
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py num_agents:=4
 ```
 - Every pose the bridge exchanges refers to `base_link`, which is the rear axle (as in the URDF and on the real car): the `sx`/`sy`/`stheta` parameters, the poses set through Foxglove's pose tools, and the odometry and `tf` it publishes. The LiDAR sits `lidar_base_link_to_lidar_tf` ahead of it (0.275 m by default), matching the laser frame in `tf`. Internally the gym integrates the car's centre of gravity, `lr` ahead of the rear axle; the bridge converts.
-- The ego and opponent starting poses can also be changed via parameters (`sx`/`sy`/`stheta` for the ego, `sx1`/`sy1`/`stheta1` onwards for the opponents), these are in the global map coordinate frame. Every agent you ask for needs a start pose: if `num_agents` is 3 but `sx2`/`sy2`/`stheta2` are missing, the bridge stops and tells you which parameters to add rather than guessing a spot on the map for you. The poses shipped in `sim.yaml` line up eight cars on the Levine map (two rows of four), so anything up to `num_agents:=8` works out of the box; add `sx8`/`sy8`/`stheta8` and so on to race more, and change them when you change the map. For `maps/Spielberg`, the start of the raceline is `sx: -0.04`, `sy: -0.85`, `stheta: 3.40`.
+- The ego and opponent starting poses can also be changed via parameters (`sx`/`sy`/`stheta` for the ego, `sx1`/`sy1`/`stheta1` onwards for the opponents), these are in the global map coordinate frame. Every agent you spawn needs a start pose: if `num_agents` is 3 but `sx2`/`sy2`/`stheta2` are missing, the bridge will error out informing you which parameters are missing. The poses shipped in `sim.yaml` line up eight cars on the Levine map (two rows of four), so anything up to `num_agents:=8` works out of the box; add `sx8`/`sy8`/`stheta8` and so on to race more, and change them when you change the map. For `maps/Spielberg`, the start of the raceline is `sx: -0.04`, `sy: -0.85`, `stheta: 3.40`.
 - A different sim config can be selected at launch time. The value is a file name in `config/`, a package relative path, or an absolute path:
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py config:=my_sim.yaml
@@ -166,7 +162,7 @@ In **single** agent:
 
 `/ego_racecar/odom`: The ego agent's odometry
 
-`/ego_racecar/collision`: `std_msgs/Bool`, true while the sim reports the ego agent in contact with a wall or another car (the contact solver holds the car against the obstacle; it can still creep along it). Instantaneous, not latched: it flickers while the car grinds along a wall and clears once the car backs off or is reset, so latch it yourself if you need "ever collided".
+`/ego_racecar/collision`: `std_msgs/Bool`, true while the sim reports the ego agent in contact with a wall or another car. It is an instantaneous flag, not latched: it flickers while the car grinds along a wall and clears once the car backs off or is reset, so latch it yourself if you need "ever collided".
 
 `/ego_racecar/lap_count`: `std_msgs/Int32`, completed laps. `/ego_racecar/lap_time`: `std_msgs/Float32`, the last completed lap's time in seconds. Laps are only counted on maps that ship a `<map>_centerline.csv` next to the yaml (`maps/Spielberg` does; the levine maps do not, so both stay 0 there). The spawn-to-finish-line stretch is an out lap: the first crossing starts the clock, so lap 1 and every lap time are full circuits. The bridge also logs each completed lap with its time.
 
@@ -219,14 +215,14 @@ Then, press `i` to move forward, `u` and `o` to move forward and turn, `,` to mo
 There are multiple ways to launch your own agent to control the vehicles.
 
 - Natively: create a new package for your agent in the `sim_ws` workspace, build it, and launch it in another terminal while the sim is running. Your node subscribes to `/scan` and `/ego_racecar/odom` and publishes `AckermannDriveStamped` messages on `/drive`.
-- In Docker: either create your package inside the sim container's `/sim_ws` workspace, or create a separate ROS 2 container for your agent node. With default `docker` networking the two containers land on the same network and discover each other's topics. If you're using noVNC, create a new service in `docker-compose.yml` for your agent node on the same network as the sim and novnc containers.
+- In Docker: either create your package inside the sim container's `/sim_ws` workspace, or create a separate ROS 2 container for your agent node. With default `docker` networking, the two containers are on the same network and discover each other's topics. If you're using noVNC, create a new service in `docker-compose.yml` for your agent node on the same network as the sim and novnc containers.
 
 Python nodes that use the gym's environment directly should run from the workspace venv, which is what the bridge's own entry point does.
 
 ## FAQ & Debugging
 
 ### The gym refuses to install: requires Python >= 3.12
-This version of `f1tenth_gym` needs Python 3.12 or newer. Ubuntu 24.04 with ROS 2 Jazzy provides it. On Ubuntu 22.04 / ROS 2 Humble use the `dev-humble` branches of both `f1tenth_gym_ros` and `f1tenth_gym` instead.
+This version of `f1tenth_gym` needs Python 3.12 or newer. Ubuntu 24.04 with ROS 2 Jazzy ships with it. On Ubuntu 22.04 / ROS 2 Humble we recommend you use the `dev-humble` branches of both `f1tenth_gym_ros` and `f1tenth_gym` instead.
 
 ### This package is managed externally, PEP 668
 You are trying to install the package using the system python. Install `f1tenth_gym` inside the virtual environment as instructed with `.venv` above.
@@ -244,10 +240,10 @@ The gym needs NumPy 2, which the venv installs on top of the system NumPy 1.26 f
 The parameter and launch argument were renamed to `num_agents` (plural, matching the gym). The launch file refuses the old spelling with a message rather than silently running a single car.
 
 ### Foxglove bridge: "Couldn't initialize websocket server: Bind Error"
-Another simulation is already running on this machine and holds port 8765. Stop it first; only one sim can run at a time.
+Another bridge is already running on this machine and holds port 8765. Stop it first; only one sim can run at a time.
 
 ### Permission denied on `__pycache__` after using Docker
 The compose bind mount runs as root inside the container and can leave root-owned `__pycache__` folders in the repo. `sudo chown -R $USER:$USER` the repository directory to fix it.
 
 ### I want to run the gym's own test suite
-It is the maintainers' suite and not needed to use the simulator. It needs well over 9 GB of free RAM in one process; on a laptop with a desktop session open it will get killed. Run it in CI or on a machine with nothing else open.
+It is not needed to use the simulator. It needs well over 9 GB of free RAM in one process; on a laptop with a desktop session open it will get killed. Run it in CI or on a machine with nothing else open.
