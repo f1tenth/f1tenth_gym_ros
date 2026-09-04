@@ -21,13 +21,23 @@
 # SOFTWARE.
 
 import math
+import os
 import pathlib
+import signal
 from functools import partial
 
+# The bridge runs the simulator's contact and LiDAR kernels on the CPU. Pin JAX
+# to the CPU before it is imported (via f1tenth_gym below): with a CUDA JAX
+# installed this stops it reserving most of the GPU's memory at startup, and
+# with a CPU-only JAX it silences the "NVIDIA GPU may be present" notice.
+# Set JAX_PLATFORMS yourself to override.
+os.environ.setdefault("JAX_PLATFORMS", "cpu")
+
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rosgraph_msgs.msg import Clock
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float32, Int32
 
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
@@ -166,11 +176,14 @@ class Opponent:
         self.wheel_angle = 0.0
         self.scan = []
         self.collision = False
+        self.lap_count = 0  # last value published, to log each completed lap once
         self.scan_pub = None
         self.odom_pub = None
         self.ego_odom_pub = None
         self.odom_in_ego_pub = None
         self.collision_pub = None
+        self.lap_count_pub = None
+        self.lap_time_pub = None
         self.drive_sub = None
         self.reset_sub = None
 
@@ -199,7 +212,7 @@ class GymBridge(Node):
         self.declare_parameter('scan_angle_max', 135.0)
         self.declare_parameter('map_path', 'levine')
         self.declare_parameter('map_img_ext', '.png')
-        self.declare_parameter('num_agent', 1)
+        self.declare_parameter('num_agents', 1)
         self.declare_parameter('sx', 0.0)
         self.declare_parameter('sy', 0.0)
         self.declare_parameter('stheta', 0.0)
@@ -212,7 +225,7 @@ class GymBridge(Node):
         self.declare_parameter('use_sim_time_bridge', False)
 
         # check num_agents
-        num_agents = self.get_parameter('num_agent').value
+        num_agents = self.get_parameter('num_agents').value
         if type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
         if num_agents < 1:
@@ -230,7 +243,7 @@ class GymBridge(Node):
         opp_poses, missing_pose_params = self._opp_start_poses(num_agents)
         if missing_pose_params:
             raise ValueError(
-                f'num_agent is {num_agents}, so a start pose is needed for each of '
+                f'num_agents is {num_agents}, so a start pose is needed for each of '
                 f'the {num_agents - 1} opponent(s), but these parameters were not '
                 f'set: {", ".join(missing_pose_params)}. Add them to the sim config '
                 'this node was launched with (see config/sim.yaml).'
@@ -304,9 +317,7 @@ class GymBridge(Node):
         )
         self.lidar_cfg = lidar_cfg
 
-        loop_counter = (
-            LoopCounterMode.FRENET_BASED if has_reference_line else LoopCounterMode.TOGGLE
-        )
+        loop_counter = LoopCounterMode.FRENET_BASED
         compute_frenet = has_reference_line
         self.sim_timestep = 0.01
         simulation_cfg = SimulationConfig(
@@ -316,12 +327,16 @@ class GymBridge(Node):
             dynamics_model=DynamicModel.ST,
             loop_counter=loop_counter,
             compute_frenet_frame=compute_frenet,
+            max_laps=None,
+            # The spawn-to-line stretch is an out lap: the first crossing only starts
+            # the clock, so lap 1 and every lap_time are full circuits.
+            count_partial_first_lap=False,
         )
         control_cfg = ControlConfig(
             longitudinal_mode=LongitudinalActionType.SPEED,
             steering_mode=SteerActionType.STEERING_ANGLE,
         )
-        observation_cfg = ObservationConfig(type=ObservationType.DIRECT)
+        observation_cfg = ObservationConfig(type=ObservationType.DEFAULT)
         reset_cfg = ResetConfig(strategy=ResetStrategy.MAP_RANDOM_STATIC)
 
         env_config = EnvConfig(
@@ -341,7 +356,7 @@ class GymBridge(Node):
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
         stheta = self.get_parameter('stheta').value
-        self.ego_pose = [sx, sy, stheta]
+        self.ego_pose = self._base_link_to_cog([sx, sy, stheta])
         self.ego_speed = [0.0, 0.0, 0.0]
         self.ego_requested_speed = 0.0
         self.ego_steer = 0.0
@@ -381,14 +396,14 @@ class GymBridge(Node):
                 odom_topic=namespace + '/' + opp_odom_topic,
                 ego_odom_topic=namespace + '/' + opp_ego_odom_topic,
                 odom_in_ego_topic=self.ego_namespace + '/' + ego_opp_odom_topic + suffix,
-                pose=opp_poses[i - 1],
+                pose=self._base_link_to_cog(opp_poses[i - 1]),
             ))
         self.has_opp = len(self.opps) > 0
         self.get_logger().info(
             'Start poses: ' + '; '.join(
                 f'{ns}=({p[0]:.2f}, {p[1]:.2f}, {p[2]:.2f})'
-                for ns, p in [(self.ego_namespace, self.ego_pose)]
-                + [(opp.namespace, opp.pose) for opp in self.opps]
+                for ns, p in [(self.ego_namespace, self._cog_to_base_link(self.ego_pose))]
+                + [(opp.namespace, self._cog_to_base_link(opp.pose)) for opp in self.opps]
             )
         )
 
@@ -414,6 +429,11 @@ class GymBridge(Node):
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
         self.ego_collision_pub = self.create_publisher(
             Bool, self.ego_namespace + '/collision', 10)
+        self.ego_lap_count = 0  # last value published, to log each completed lap once
+        self.ego_lap_count_pub = self.create_publisher(
+            Int32, self.ego_namespace + '/lap_count', 10)
+        self.ego_lap_time_pub = self.create_publisher(
+            Float32, self.ego_namespace + '/lap_time', 10)
         self.ego_drive_published = False
         for opp in self.opps:
             opp.scan_pub = self.create_publisher(LaserScan, opp.scan_topic, 10)
@@ -422,6 +442,10 @@ class GymBridge(Node):
             opp.odom_in_ego_pub = self.create_publisher(Odometry, opp.odom_in_ego_topic, 10)
             opp.collision_pub = self.create_publisher(
                 Bool, opp.namespace + '/collision', 10)
+            opp.lap_count_pub = self.create_publisher(
+                Int32, opp.namespace + '/lap_count', 10)
+            opp.lap_time_pub = self.create_publisher(
+                Float32, opp.namespace + '/lap_time', 10)
 
         if self.get_parameter('use_sim_time_bridge').value:
             self.get_logger().info('Using simulation time. Will publish /clock topic. Drive and odom will be as fast as possible.')
@@ -492,6 +516,18 @@ class GymBridge(Node):
     def _all_poses(self):
         return [list(self.ego_pose)] + [list(opp.pose) for opp in self.opps]
 
+    # The simulator's poses are the model's centre of gravity, while base_link
+    # (URDF, real car, the LiDAR mount offset) is the rear axle, lr behind it.
+    # Poses coming in on topics and parameters are base_link; poses going out
+    # on odom and tf are base_link; internally everything stays at the CoG.
+    def _base_link_to_cog(self, pose):
+        lr = float(self.vehicle_params.lr)
+        return [pose[0] + lr * math.cos(pose[2]), pose[1] + lr * math.sin(pose[2]), pose[2]]
+
+    def _cog_to_base_link(self, pose):
+        lr = float(self.vehicle_params.lr)
+        return [pose[0] - lr * math.cos(pose[2]), pose[1] - lr * math.sin(pose[2]), pose[2]]
+
     def pause_callback(self, msg):
         self.sim_paused = msg.data
         self.get_logger().info(f"Simulation {'paused' if self.sim_paused else 'resumed'}")
@@ -532,7 +568,7 @@ class GymBridge(Node):
         rqz = pose_msg.pose.pose.orientation.z
         rqw = pose_msg.pose.pose.orientation.w
         rtheta = Rotation.from_quat([rqx, rqy, rqz, rqw]).as_euler('xyz')[2]
-        self.ego_pose = [rx, ry, rtheta]
+        self.ego_pose = self._base_link_to_cog([rx, ry, rtheta])
         self.env.reset(options={"poses": np.array(self._all_poses())})
         self._update_sim_state()
 
@@ -547,7 +583,7 @@ class GymBridge(Node):
         rqz = pose_msg.pose.orientation.z
         rqw = pose_msg.pose.orientation.w
         rtheta = Rotation.from_quat([rqx, rqy, rqz, rqw]).as_euler('xyz')[2]
-        self.opps[opp_index].pose = [rx, ry, rtheta]
+        self.opps[opp_index].pose = self._base_link_to_cog([rx, ry, rtheta])
         self.env.reset(options={"poses": np.array(self._all_poses())})
         self._update_sim_state()
 
@@ -616,6 +652,26 @@ class GymBridge(Node):
         for opp in self.opps:
             opp.collision_pub.publish(Bool(data=opp.collision))
 
+        # pub lap counter: completed laps and the last completed lap's time. Laps are
+        # only counted on maps with a centerline CSV; both stay 0 otherwise.
+        lap_counts = self.env.unwrapped.lap_counts
+        lap_times = self.env.unwrapped.lap_times
+        ego_laps = int(lap_counts[0])
+        if ego_laps > self.ego_lap_count:
+            self.get_logger().info(
+                f'{self.ego_namespace} completed lap {ego_laps}, last lap {float(lap_times[0]):.2f} s')
+        self.ego_lap_count = ego_laps  # follows resets back to 0 as well
+        self.ego_lap_count_pub.publish(Int32(data=ego_laps))
+        self.ego_lap_time_pub.publish(Float32(data=float(lap_times[0])))
+        for i, opp in enumerate(self.opps, start=1):
+            laps = int(lap_counts[i])
+            if laps > opp.lap_count:
+                self.get_logger().info(
+                    f'{opp.namespace} completed lap {laps}, last lap {float(lap_times[i]):.2f} s')
+            opp.lap_count = laps
+            opp.lap_count_pub.publish(Int32(data=laps))
+            opp.lap_time_pub.publish(Float32(data=float(lap_times[i])))
+
         # pub tf
         self._publish_odom(ts)
         self._publish_transforms(ts)
@@ -678,6 +734,7 @@ class GymBridge(Node):
             opp.speed[2] = float(std_state[i, 5])
 
     def _make_odom_msg(self, ts, namespace, pose, speed):
+        pose = self._cog_to_base_link(pose)
         odom = Odometry()
         odom.header.stamp = ts
         odom.header.frame_id = 'map'
@@ -708,6 +765,7 @@ class GymBridge(Node):
         for namespace, pose in [(self.ego_namespace, self.ego_pose)] + [
             (opp.namespace, opp.pose) for opp in self.opps
         ]:
+            pose = self._cog_to_base_link(pose)
             t = Transform()
             t.translation.x = pose[0]
             t.translation.y = pose[1]
@@ -769,7 +827,17 @@ class GymBridge(Node):
 def main(args=None):
     rclpy.init(args=args)
     gym_bridge = GymBridge()
-    rclpy.spin(gym_bridge)
+    try:
+        rclpy.spin(gym_bridge)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # Ctrl+C or a launch-initiated shutdown: exit quietly, not with a traceback.
+        pass
+    finally:
+        # A second SIGINT during teardown would otherwise surface as a
+        # KeyboardInterrupt traceback from JAX's atexit cache cleanup.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        gym_bridge.destroy_node()
+        rclpy.try_shutdown()
 
 if __name__ == '__main__':
     main()

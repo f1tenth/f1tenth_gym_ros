@@ -26,8 +26,8 @@ import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
-from launch.conditions import IfCondition, LaunchConfigurationEquals
-from launch.substitutions import Command, LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import Command, EqualsSubstitution, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -77,10 +77,15 @@ def _launch_setup(context, *args, **kwargs):
         config = os.path.join(package_share, 'config', config)
     with open(config, 'r') as config_file:
         config_dict = yaml.safe_load(config_file)
-    num_agent = LaunchConfiguration('num_agent').perform(context)  # command line wins
-    num_agent = int(num_agent) if num_agent.strip() else config_dict['bridge']['ros__parameters']['num_agent']
-    if num_agent < 1:
-        raise RuntimeError(f'num_agent must be at least 1, got {num_agent}.')
+
+    # launch accepts undeclared key:=value pairs silently, so the old spelling would
+    # quietly run a single car; reject it with a pointer to the new name instead.
+    if context.launch_configurations.get('num_agent') is not None:
+        raise RuntimeError('num_agent was renamed: use num_agents:=<n> (and num_agents in sim.yaml).')
+    num_agents = LaunchConfiguration('num_agents').perform(context)  # command line wins
+    num_agents = int(num_agents) if num_agents.strip() else config_dict['bridge']['ros__parameters']['num_agents']
+    if num_agents < 1:
+        raise RuntimeError(f'num_agents must be at least 1, got {num_agents}.')
     teleop = config_dict['bridge']['ros__parameters']['kb_teleop']
     use_sim_time = config_dict['bridge']['ros__parameters']['use_sim_time']
 
@@ -89,7 +94,7 @@ def _launch_setup(context, *args, **kwargs):
         executable='gym_bridge',
         name='bridge',
         parameters=[config, {
-            'num_agent': num_agent,  # after config so that num_agent:= works
+            'num_agents': num_agents,
             'use_sim_time': False,  # Always use real time for the bridge node
             'use_sim_time_bridge': use_sim_time, # Whether to internally use and publish sim time
             }], 
@@ -219,7 +224,7 @@ def _launch_setup(context, *args, **kwargs):
     # One publisher per opponent, matching the namespaces the bridge publishes
     # TF for: opp_racecar, opp_racecar2, opp_racecar3, ...
     opp_robot_publishers = []
-    for i in range(1, num_agent):
+    for i in range(1, num_agents):
         suffix = '' if i == 1 else str(i)  # first opponent keeps the unsuffixed names
         opp_robot_publishers.append(Node(
             package='robot_state_publisher',
@@ -278,7 +283,7 @@ def generate_launch_description():
     )
     ld.add_action(
         DeclareLaunchArgument(
-            'num_agent',
+            'num_agents',
             default_value='',
             description='Number of agents (1 ego + opponents). Empty takes it from the sim config.',
         )
@@ -335,7 +340,7 @@ def generate_launch_description():
         SetLaunchConfiguration(
             'foxglove_open_url',
             ['foxglove://open?ds=foxglove-websocket&ds.url=ws://', foxglove_host, ':', foxglove_port],
-            condition=LaunchConfigurationEquals('foxglove_target', 'studio'),
+            condition=IfCondition(EqualsSubstitution(LaunchConfiguration('foxglove_target'), 'studio')),
         )
     )
     ld.add_action(OpaqueFunction(function=_launch_setup))

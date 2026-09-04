@@ -264,6 +264,26 @@
       "imageMode": {},
       "synchronize": false,
       "followTf": "ego_racecar/base_link"
+    },
+    "Gauge!egolaps": {
+      "path": "/ego_racecar/lap_count.data",
+      "minValue": 0,
+      "maxValue": 20,
+      "colorMode": "colormap",
+      "colorMap": "turbo",
+      "gradient": [
+        "#0000ff",
+        "#ff00ff"
+      ],
+      "reverse": false
+    },
+    "RawMessages!egolaptime": {
+      "topicPath": "/ego_racecar/lap_time.data",
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "diffEnabled": false,
+      "showFullMessageForDiff": false,
+      "expansion": "all"
     }
   },
   "globalVariables": {},
@@ -274,5 +294,15 @@
   "drawerConfig": {
     "tracks": []
   },
-  "layout": "3D!18i6zy7"
+  "layout": {
+    "direction": "row",
+    "first": "3D!18i6zy7",
+    "splitPercentage": 78,
+    "second": {
+      "direction": "column",
+      "first": "Gauge!egolaps",
+      "second": "RawMessages!egolaptime",
+      "splitPercentage": 60
+    }
+  }
 }

@@ -57,10 +57,10 @@ bridge:
     scale: 1.0
 
     # number of agents. Must be >=1 since the first agent is the ego car.
-    # Can be overridden at launch time with num_agent:=<n>. 
+    # Can be overridden at launch time with num_agents:=<n>. 
     # There is no upper limit, but every opponent needs an sx/sy/stheta below or the bridge
     # refuses to start.
-    num_agent: 1
+    num_agents: 1
 
     # ego starting pose on map
     sx: -12.0

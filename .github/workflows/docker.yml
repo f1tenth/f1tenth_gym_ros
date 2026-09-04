@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ros_distro: [humble, jazzy]
+        ros_distro: [jazzy]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

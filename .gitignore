@@ -135,3 +135,6 @@ launch/temp/
 
 # f1tenth_gym cloned inside this repo per the README (native install)
 /f1tenth_gym/
+
+# VS Code: keep shared settings, never the C/C++ IntelliSense cache (grows to GBs)
+.vscode/browse.vc.db*

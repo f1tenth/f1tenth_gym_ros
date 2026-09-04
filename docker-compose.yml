@@ -23,7 +23,12 @@
 services:
   sim:
     image: f1tenth_gym_ros
-    build: ./
+    build:
+      context: ./
+      args:
+        # GYM_SOURCE=local uses the nested f1tenth_gym/ clone; git clones GYM_REF
+        GYM_SOURCE: ${GYM_SOURCE:-git}
+        GYM_REF: ${GYM_REF:-dev-jax}
     ports:
       # foxglove_bridge websocket: connect Foxglove to ws://localhost:8765
       - "8765:8765"
