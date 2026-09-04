@@ -1,13 +1,10 @@
 .git
 .github
+f1tenth_gym
 build
 install
 log
 **/__pycache__
 **/.venv
-f1tenth_gym/.git
-f1tenth_gym/.venv
-f1tenth_gym/maps/*
-!f1tenth_gym/maps/.gitkeep
 Dockerfile
 docker-compose.yml

@@ -22,31 +22,7 @@
 
 ARG ROS_DISTRO=jazzy
 
-# Where f1tenth_gym comes from:
-#   git   (default) clone GYM_REF from GitHub
-#   local copy the nested f1tenth_gym/ clone inside this repo (the layout the
-#         native install creates), so uncommitted gym changes can be tested here:
-#         GYM_SOURCE=local docker compose build
-ARG GYM_SOURCE=git
-ARG GYM_REF=dev-jax
-
-# --- gym source stages: only the one selected by GYM_SOURCE is built ---------
-FROM ros:${ROS_DISTRO} AS gym-git
-ARG GYM_REF
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git ca-certificates && \
-    rm -rf /var/lib/apt/lists/* && \
-    git clone --depth 1 --branch ${GYM_REF} \
-        https://github.com/f1tenth/f1tenth_gym.git /sim_ws/f1tenth_gym
-
-FROM ros:${ROS_DISTRO} AS gym-local
-COPY f1tenth_gym /sim_ws/f1tenth_gym
-
-FROM gym-${GYM_SOURCE} AS gym-src
-
-# --- the image ---------------------------------------------------------------
 FROM ros:${ROS_DISTRO}
-ARG ROS_DISTRO
 
 SHELL ["/bin/bash", "-c"]
 
@@ -89,8 +65,10 @@ RUN pip3 install --ignore-installed pip
 # The f1tenth_gym dependency lives outside /sim_ws/src so that bind-mounting
 # this repo into the container (see docker-compose.yml) cannot shadow it. An
 # editable install is required: the gym downloads tracks into its own maps/.
-COPY --from=gym-src /sim_ws/f1tenth_gym /sim_ws/f1tenth_gym
-RUN pip3 install --ignore-installed -e /sim_ws/f1tenth_gym
+ARG GYM_REF=dev-jax
+RUN git clone --depth 1 --branch ${GYM_REF} \
+        https://github.com/f1tenth/f1tenth_gym.git /sim_ws/f1tenth_gym && \
+    pip3 install --ignore-installed -e /sim_ws/f1tenth_gym
 
 COPY . /sim_ws/src/f1tenth_gym_ros
 
