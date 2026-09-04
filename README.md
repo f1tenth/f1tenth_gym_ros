@@ -43,6 +43,7 @@ Set up a native Ubuntu 24.04 either on your own machine (dual boot or main OS) o
 6. **Install `f1tenth_gym` into the venv.** With the venv still active, an editable install is required:
    ```bash
    pip install -e $HOME/sim_ws/src/f1tenth_gym_ros/f1tenth_gym
+   pip install -U coverage
    ```
    This installs the CPU build of JAX, which is all the bridge uses. Do **not** use `uv sync` from the gym's own README for the ROS setup: it creates a separate environment that cannot see ROS.
 7. **Check the install:**
