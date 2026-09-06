@@ -56,7 +56,7 @@ Set up a native Ubuntu 24.04 either on your own machine (dual boot or main OS) o
    source /opt/ros/jazzy/setup.bash
    cd $HOME/sim_ws
    rosdep install -i --from-path src --rosdistro jazzy -y
-   colcon build --symlink-install
+   colcon build --cmake-args -DPython3_FIND_VIRTUALENV="ONLY" --sym-links
    ```
 
 Once everything is installed, skip to [Launching the Simulation](#launching-the-simulation) below.
