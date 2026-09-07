@@ -193,13 +193,13 @@
       },
       "cameraState": {
         "perspective": true,
-        "distance": 19.999999999998618,
-        "phi": 60.000000000000455,
-        "thetaOffset": 45.00000000000291,
+        "distance": 35.16173831819783,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": -0.09321478413203176,
         "targetOffset": [
-          -8.911253059531552,
-          0.03503782712386546,
-          -4.859471553016986e-17
+          -1.9671735501319842,
+          5.015656769273419,
+          -4.7876171032030805e-17
         ],
         "target": [
           0,
@@ -263,27 +263,304 @@
       },
       "imageMode": {},
       "synchronize": false,
-      "followTf": "ego_racecar/base_link"
+      "followTf": "map",
+      "foxglovePanelTitle": "Map View"
     },
-    "Gauge!egolaps": {
-      "path": "/ego_racecar/lap_count.data",
-      "minValue": 0,
-      "maxValue": 20,
-      "colorMode": "colormap",
-      "colorMap": "turbo",
-      "gradient": [
-        "#0000ff",
-        "#ff00ff"
-      ],
-      "reverse": false
+    "RawMessages!14hdtdl": {
+      "defaultExpanded": false,
+      "topicPath": "/ego_racecar/lap_count.data",
+      "fontSize": 72
     },
-    "RawMessages!egolaptime": {
+    "RawMessages!1vck6r8": {
+      "defaultExpanded": false,
       "topicPath": "/ego_racecar/lap_time.data",
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "diffEnabled": false,
-      "showFullMessageForDiff": false,
-      "expansion": "all"
+      "fontSize": 72
+    },
+    "Plot!26gmowp": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/drive.drive.speed",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "5f43f64c-f225-43d9-ae45-ea3cfcb70649",
+          "label": "Speed cmd"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/drive.drive.steering_angle",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "af2b2d99-9e18-4134-b932-8c0020fd3960",
+          "label": "Steering angle cmd"
+        }
+      ]
+    },
+    "3D!3lfrc7e": {
+      "layers": {
+        "845139cb-26bc-40b3-8161-8ab60af4baf5": {
+          "visible": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "845139cb-26bc-40b3-8161-8ab60af4baf5",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        },
+        "b663b903-4ddb-4b31-9444-d3ecaa3dacf0": {
+          "displayMode": "visual",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "label": "URDF_ego",
+          "instanceId": "b663b903-4ddb-4b31-9444-d3ecaa3dacf0",
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/ego_robot_description",
+          "framePrefix": "",
+          "order": 2,
+          "fallbackColor": "#ff0000"
+        },
+        "e1031b0e-b009-492a-8910-a9ab5c1016fe": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "e1031b0e-b009-492a-8910-a9ab5c1016fe",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description",
+          "framePrefix": "",
+          "order": 3
+        },
+        "382e6f83-7912-4c69-8630-285c14850a65": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "382e6f83-7912-4c69-8630-285c14850a65",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp2",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description2",
+          "framePrefix": "",
+          "order": 4
+        },
+        "6ccd9716-f098-4bb9-b5bb-7aca6669cc33": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "6ccd9716-f098-4bb9-b5bb-7aca6669cc33",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp3",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description3",
+          "framePrefix": "",
+          "order": 5
+        },
+        "8e780760-ca21-4085-8102-3471d3a0ebb6": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "8e780760-ca21-4085-8102-3471d3a0ebb6",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp4",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description4",
+          "framePrefix": "",
+          "order": 5
+        },
+        "8360373a-c92b-4382-89f6-294d8a8a03a4": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "8360373a-c92b-4382-89f6-294d8a8a03a4",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp5",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description5",
+          "framePrefix": "",
+          "order": 5
+        },
+        "1fbd505c-66a0-4d6c-a7b6-3c5910619bc2": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "1fbd505c-66a0-4d6c-a7b6-3c5910619bc2",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp6",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description6",
+          "framePrefix": "",
+          "order": 5
+        },
+        "50de906b-a34c-4a42-b4ca-77167830a4dc": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": false,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "50de906b-a34c-4a42-b4ca-77167830a4dc",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF_opp7",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/opp_robot_description7",
+          "framePrefix": "",
+          "order": 5
+        }
+      },
+      "cameraState": {
+        "perspective": true,
+        "distance": 3.496492294474609,
+        "phi": 81.37877678260242,
+        "thetaOffset": 90.55269292800844,
+        "targetOffset": [
+          2.075761274359209,
+          -0.0173104397780598,
+          -0.16429034780516677
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "fixedFrame": "map",
+      "scene": {
+        "ignoreColladaUpAxis": true,
+        "meshUpAxis": "z_up",
+        "transforms": {
+          "visible": false
+        }
+      },
+      "transforms": {
+        "frame:map": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/map": {
+          "visible": true
+        },
+        "/move_base_simple/goal": {
+          "visible": false
+        },
+        "/initialpose": {
+          "visible": false
+        },
+        "/scan": {
+          "visible": true,
+          "colorField": "range",
+          "colorMode": "gradient",
+          "colorMap": "turbo",
+          "gradient": [
+            "#ec0303ff",
+            "#12fd00ff"
+          ],
+          "pointSize": 5
+        }
+      },
+      "publish": {
+        "type": "pose_estimate",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "synchronize": false,
+      "followTf": "ego_racecar/base_link",
+      "foxglovePanelTitle": "3rd Person View"
     }
   },
   "globalVariables": {},
@@ -297,12 +574,21 @@
   "layout": {
     "direction": "row",
     "first": "3D!18i6zy7",
-    "splitPercentage": 78,
+    "splitPercentage": 59.573361082206034,
     "second": {
+      "first": {
+        "first": "RawMessages!14hdtdl",
+        "second": "RawMessages!1vck6r8",
+        "direction": "row",
+        "splitPercentage": 36.166365280289334
+      },
+      "second": {
+        "first": "Plot!26gmowp",
+        "second": "3D!3lfrc7e",
+        "direction": "column"
+      },
       "direction": "column",
-      "first": "Gauge!egolaps",
-      "second": "RawMessages!egolaptime",
-      "splitPercentage": 60
+      "splitPercentage": 16.040567714860256
     }
   }
 }
