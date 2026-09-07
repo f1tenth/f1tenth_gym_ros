@@ -1,0 +1,13 @@
+# levine_blocked with the pair of door recesses on the west hallway walled off:
+# the lab 3 grading map, same frame as every levine map. Built by
+# autograder/labs/lab3/make_grading_map.py.
+image: levine_fully_blocked.png
+resolution: 0.05
+origin:
+- -51.224998
+- -51.224998
+- 0.0
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+centerline: levine_centerline.csv

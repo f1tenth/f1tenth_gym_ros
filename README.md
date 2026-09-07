@@ -133,7 +133,7 @@ You can then run another node in another shell (`tmux` or a separate terminal).
 # Configuring the simulation
 - The configuration file for the simulation is at `f1tenth_gym_ros/config/sim.yaml`.
 - Topic names and namespaces can be configured but it is recommended to leave them unchanged.
-- The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention: the image file and the `yaml` file should live together. Lap counting additionally needs a `<map>_centerline.csv` next to the yaml (optionally a `<map>_raceline.csv` too), in the format the gym's tracks use. `maps/Spielberg` ships both. The levine maps have none, so their lap counters stay at 0.
+- The map can be changed via the `map_path` parameter. It can be a package-relative path like `maps/levine` or a built-in gym track name like `Spielberg`. The map follows the ROS convention: the image file and the `yaml` file should live together. Lap counting additionally needs a centerline in the format the gym's tracks use: either a `<map>_centerline.csv` next to the yaml (optionally a `<map>_raceline.csv` too), or a `centerline:` key in the yaml (optionally `raceline:`) naming a CSV relative to the yaml. `maps/Spielberg` ships both files; the four `maps/levine*` yamls share one `levine_centerline.csv` through that key (counter-clockwise, finish line on the south hallway at x = 0).
 - The `num_agents` parameter configures how many cars to simulate. The first agent is the ego car, all additional agents are opponents, and a robot model is spawned for every opponent. There is no upper limit; you are bounded by how many start poses you define and by how fast your machine can step the physics. The shipped Foxglove layout draws eight cars; past that, add a robot description panel per extra opponent. You can either set it in `sim.yaml`, or override it at launch time without editing the config:
 ```bash
 ros2 launch f1tenth_gym_ros gym_bridge_launch.py num_agents:=4
@@ -165,7 +165,7 @@ In **single** agent:
 
 `/ego_racecar/collision`: `std_msgs/Bool`, true while the sim reports the ego agent in contact with a wall or another car. It is an instantaneous flag, not latched: it flickers while the car grinds along a wall and clears once the car backs off or is reset, so latch it yourself if you need "ever collided".
 
-`/ego_racecar/lap_count`: `std_msgs/Int32`, completed laps. `/ego_racecar/lap_time`: `std_msgs/Float32`, the last completed lap's time in seconds. Laps are only counted on maps that ship a `<map>_centerline.csv` next to the yaml (`maps/Spielberg` does; the levine maps do not, so both stay 0 there). The spawn-to-finish-line stretch is an out lap: the first crossing starts the clock, so lap 1 and every lap time are full circuits. The bridge also logs each completed lap with its time.
+`/ego_racecar/lap_count`: `std_msgs/Int32`, completed laps. `/ego_racecar/lap_time`: `std_msgs/Float32`, the last completed lap's time in seconds. Laps are only counted on maps that have a centerline (`maps/Spielberg` and the `maps/levine*` maps do; `blank` does not, so both stay 0 there). The spawn-to-finish-line stretch is an out lap: the first crossing starts the clock, so lap 1 and every lap time are full circuits. The bridge also logs each completed lap with its time.
 
 `/map`: The map of the environment
 

@@ -24,6 +24,7 @@ import math
 import os
 import pathlib
 import signal
+import warnings
 from functools import partial
 
 # The bridge runs the simulator's contact and LiDAR kernels on the CPU. Pin JAX
@@ -52,6 +53,7 @@ from tf2_ros import TransformBroadcaster
 from ament_index_python.packages import get_package_share_directory
 
 import numpy as np
+import yaml
 from PIL import Image
 from scipy.spatial.transform import Rotation
 
@@ -113,8 +115,60 @@ def _resolve_map_yaml_path(map_path: str) -> pathlib.Path | None:
     return yaml_path if yaml_path.exists() else None
 
 
+# The gym warns about yaml keys it does not know. `centerline`/`raceline` are
+# the bridge's own keys (see _reference_lines_from_yaml), so that warning is noise.
+_IGNORED_MAP_KEY_WARNING = '.*ignoring unsupported map key .(centerline|raceline).'
+
+
+def _reference_lines_from_yaml(map_yaml_path: pathlib.Path, scale: float):
+    """Load the reference lines the map yaml names itself.
+
+    A `centerline:` key (and optionally `raceline:`) holds a CSV path relative
+    to the yaml, in the gym's format. It lets maps that share one frame share
+    one line: every levine variant points at maps/levine_centerline.csv. A
+    `<map>_centerline.csv` next to the yaml still takes precedence.
+    Returns (centerline, raceline); each is None when its key is absent.
+    """
+    with open(map_yaml_path, 'r') as f:
+        meta = yaml.safe_load(f) or {}
+    lines = {}
+    for key, loader in (('centerline', Raceline.from_centerline_file),
+                        ('raceline', Raceline.from_raceline_file)):
+        ref = meta.get(key)
+        if not ref:
+            continue
+        path = pathlib.Path(ref)
+        if not path.is_absolute():
+            path = map_yaml_path.parent / path
+        if not path.exists():
+            raise FileNotFoundError(f'{map_yaml_path}: {key} file not found: {path}')
+        lines[key] = loader(path, track_scale=scale)
+    return lines.get('centerline'), lines.get('raceline')
+
+
+def _attach_yaml_reference_lines(track: Track, map_yaml_path: pathlib.Path, scale: float) -> bool:
+    """Fill a track's missing centerline/raceline in from the yaml's keys.
+
+    Whichever of the two is still missing afterwards copies the other, as the
+    gym does. Returns True when the track ends up with a reference line.
+    """
+    if track.centerline is None or track.raceline is None:
+        centerline, raceline = _reference_lines_from_yaml(map_yaml_path, scale)
+        if track.centerline is None:
+            track.centerline = centerline
+        if track.raceline is None:
+            track.raceline = raceline
+    if track.raceline is None:
+        track.raceline = track.centerline
+    if track.centerline is None:
+        track.centerline = track.raceline
+    return track.centerline is not None
+
+
 def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Track, bool]:
-    track_spec = Track.load_spec(track=map_yaml_path.stem, filespec=str(map_yaml_path))
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', message=_IGNORED_MAP_KEY_WARNING)
+        track_spec = Track.load_spec(track=map_yaml_path.stem, filespec=str(map_yaml_path))
     track_spec.resolution = track_spec.resolution * scale
     track_spec.origin = (
         track_spec.origin[0] * scale,
@@ -151,7 +205,7 @@ def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Tr
         centerline=centerline,
         raceline=raceline,
     )
-    has_reference_line = centerline is not None or raceline is not None
+    has_reference_line = _attach_yaml_reference_lines(track, map_yaml_path, scale)
     return track, has_reference_line
 
 
@@ -268,10 +322,11 @@ class GymBridge(Node):
         if map_yaml_path is not None:
             self.get_logger().info('Loading map from path: %s' % map_yaml_path)
             try:
-                loaded_map = Track.from_track_path(map_yaml_path, track_scale=scale)
-                has_reference_line = (
-                    loaded_map.centerline is not None or loaded_map.raceline is not None
-                )
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore', message=_IGNORED_MAP_KEY_WARNING)
+                    loaded_map = Track.from_track_path(map_yaml_path, track_scale=scale)
+                has_reference_line = _attach_yaml_reference_lines(
+                    loaded_map, map_yaml_path, scale)
             except (ValueError, FileNotFoundError) as ex:
                 if isinstance(ex, FileNotFoundError) or "centerline" in str(ex) or "raceline" in str(ex):
                     loaded_map, has_reference_line = _load_track_from_yaml(map_yaml_path, scale)
