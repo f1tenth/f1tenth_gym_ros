@@ -137,4 +137,8 @@ launch/temp/
 /f1tenth_gym/
 
 # VS Code: keep shared settings, never the C/C++ IntelliSense cache (grows to GBs)
-.vscode/browse.vc.db*
+.vscode/
+
+# Used for TF Debugging
+/config/rviz/urdf_config.rviz
+/launch/display.launch.xml

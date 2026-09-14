@@ -5,9 +5,11 @@
 
   Written by scripts/usd_to_mesh.py from meshes/roboracer.usd. Re-run that script
   after changing the USD; hand edits here are lost on the next regeneration.
-  NOTE - the wheel-spin structure below (back_*_hinge links + continuous wheel
-  joints, animated by the gym bridge) is a hand edit that must be folded into
-  usd_to_mesh.py before the next regeneration. Avoid "colon + space" anywhere
+  NOTE - two hand edits below must be folded into usd_to_mesh.py before the
+  next regeneration: the wheel-spin structure (back_*_hinge links + continuous
+  wheel joints, animated by the gym bridge), and the frame convention (meshes
+  placed about the rear axle, no lr shift) plus the gym hitbox as base_link's
+  <collision> box. Avoid "colon + space" anywhere
   in this file; unless robot_description is wrapped in ParameterValue, launch
   yaml-parses the URDF string and a colon turns it into a mapping.
 
@@ -30,15 +32,21 @@
   <xacro:property name="vehicle" value="$(arg vehicle)"/>
   <xacro:if value="${vehicle == 'f1tenth'}">
     <xacro:property name="s" value="${1.000000}"/>
-    <xacro:property name="lr" value="${0.171450}"/>
+    <xacro:property name="hit_len" value="${0.58}"/>
+    <xacro:property name="hit_wid" value="${0.31}"/>
+    <xacro:property name="hit_cx" value="${0.1651}"/>
   </xacro:if>
   <xacro:if value="${vehicle == 'f1fifth'}">
     <xacro:property name="s" value="${1.656456}"/>
-    <xacro:property name="lr" value="${0.258500}"/>
+    <xacro:property name="hit_len" value="${0.8}"/>
+    <xacro:property name="hit_wid" value="${0.55}"/>
+    <xacro:property name="hit_cx" value="${0.2655}"/>
   </xacro:if>
   <xacro:if value="${vehicle == 'fullscale'}">
     <xacro:property name="s" value="${7.449941}"/>
-    <xacro:property name="lr" value="${1.508760}"/>
+    <xacro:property name="hit_len" value="${4.298}"/>
+    <xacro:property name="hit_wid" value="${1.674}"/>
+    <xacro:property name="hit_cx" value="${1.1963}"/>
   </xacro:if>
   <xacro:property name="mesh_dir" value="package://f1tenth_gym_ros/meshes"/>
 
@@ -65,31 +73,43 @@
     <color rgba="$(arg accent_color)"/>
   </material>
 
-  <!-- Origin is the centre of gravity, on the ground, because that is the pose
-       the gym reports and the bridge publishes base_link at. The meshes are built
-       about the rear axle, so everything here is shifted back by lr. Everything on
-       the sprung mass is baked into one mesh; only the parts the bridge animates
-       are split out. -->
+  <!-- base_link is the rear axle, on the ground: the gym simulates the centre
+       of gravity, lr ahead of it, and the bridge converts every pose it publishes
+       (odom, tf) back to the rear axle. The meshes are built about the rear axle,
+       so they sit at the origin unshifted. Everything on the sprung mass is baked
+       into one mesh; only the parts the bridge animates are split out.
+
+       The <collision> box is the gym's contact body (VehicleParameters length x
+       width, centred collision_body_center_x = wheelbase/2 ahead of the rear
+       axle). It is what raises /<car>/collision, and it is longer than the
+       chassis mesh (nose 0.455 m vs 0.428 m ahead of the axle, tail 0.125 m vs
+       0.05 m behind it at f1tenth size). Show collision geometry in the viewer
+       (RViz "Collision Enabled", Foxglove URDF display mode "Collision") to see
+       the footprint a wall contact is judged against. -->
   <link name="${car_name}/base_link">
     <visual>
-      <origin xyz="${-lr} 0 0"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_chassis.glb" scale="${s} ${s} ${s}"/>
       </geometry>
     </visual>
     <visual>
-      <origin xyz="${-lr} 0 0"/>
       <geometry>
         <mesh filename="${mesh_dir}/roboracer_accent.stl" scale="${s} ${s} ${s}"/>
       </geometry>
       <material name="${car_name}_accent"/>
     </visual>
+    <collision>
+      <origin xyz="${hit_cx} 0 ${s * 0.06}"/>
+      <geometry>
+        <box size="${hit_len} ${hit_wid} ${s * 0.12}"/>
+      </geometry>
+    </collision>
   </link>
 
   <joint name="base_to_laser_model" type="fixed">
     <parent link="${car_name}/base_link"/>
     <child link="${car_name}/laser_model"/>
-    <origin xyz="${s * 0.266962 - lr} ${s * 0.000249} ${s * 0.121636}"/>
+    <origin xyz="${s * 0.266962} ${s * 0.000249} ${s * 0.121636}"/>
   </joint>
 
   <link name="${car_name}/laser_model">
@@ -105,7 +125,7 @@
   <joint name="base_to_back_left_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
     <child link="${car_name}/back_left_hinge"/>
-    <origin xyz="${s * -0.000833 - lr} ${s * 0.130772} ${s * 0.051076}"/>
+    <origin xyz="${s * -0.000833} ${s * 0.130772} ${s * 0.051076}"/>
   </joint>
 
   <link name="${car_name}/back_left_hinge"/>
@@ -128,7 +148,7 @@
   <joint name="base_to_back_right_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
     <child link="${car_name}/back_right_hinge"/>
-    <origin xyz="${s * 0.000833 - lr} ${s * -0.132075} ${s * 0.050856}"/>
+    <origin xyz="${s * 0.000833} ${s * -0.132075} ${s * 0.050856}"/>
   </joint>
 
   <link name="${car_name}/back_right_hinge"/>
@@ -153,7 +173,7 @@
   <joint name="base_to_front_left_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
     <child link="${car_name}/front_left_hinge"/>
-    <origin xyz="${s * 0.321733 - lr} ${s * 0.132904} ${s * 0.051058}"/>
+    <origin xyz="${s * 0.321733} ${s * 0.132904} ${s * 0.051058}"/>
   </joint>
 
   <link name="${car_name}/front_left_hinge"/>
@@ -176,7 +196,7 @@
   <joint name="base_to_front_right_hinge" type="fixed">
     <parent link="${car_name}/base_link"/>
     <child link="${car_name}/front_right_hinge"/>
-    <origin xyz="${s * 0.320602 - lr} ${s * -0.131600} ${s * 0.050883}"/>
+    <origin xyz="${s * 0.320602} ${s * -0.131600} ${s * 0.050883}"/>
   </joint>
 
   <link name="${car_name}/front_right_hinge"/>
