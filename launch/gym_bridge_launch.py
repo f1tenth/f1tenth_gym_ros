@@ -86,6 +86,11 @@ def _launch_setup(context, *args, **kwargs):
     num_agents = int(num_agents) if num_agents.strip() else config_dict['bridge']['ros__parameters']['num_agents']
     if num_agents < 1:
         raise RuntimeError(f'num_agents must be at least 1, got {num_agents}.')
+    # map_path:=<path> on the command line wins over the sim config, same as
+    # num_agents. It is handed to both the bridge and the map server below.
+    map_path = LaunchConfiguration('map_path').perform(context).strip()
+    if not map_path:
+        map_path = config_dict['bridge']['ros__parameters']['map_path']
     teleop = config_dict['bridge']['ros__parameters']['kb_teleop']
     use_sim_time = config_dict['bridge']['ros__parameters']['use_sim_time']
 
@@ -95,6 +100,7 @@ def _launch_setup(context, *args, **kwargs):
         name='bridge',
         parameters=[config, {
             'num_agents': num_agents,
+            'map_path': map_path,
             'use_sim_time': False,  # Always use real time for the bridge node
             'use_sim_time_bridge': use_sim_time, # Whether to internally use and publish sim time
             }], 
@@ -130,7 +136,6 @@ def _launch_setup(context, *args, **kwargs):
     foxglove_layout_log = LogInfo(msg=['\033[34mFoxglove layout: ', foxglove_layout, '\033[0m'])
 
     # Create custom yaml file for map server by copying the original yaml file and scaling the resolution.
-    map_path = config_dict['bridge']['ros__parameters']['map_path']
     map_yaml_path = _resolve_map_yaml_path(map_path, package_share)
     with open(map_yaml_path, 'r') as file:
         map_yaml = yaml.safe_load(file)
@@ -286,6 +291,14 @@ def generate_launch_description():
             'num_agents',
             default_value='',
             description='Number of agents (1 ego + opponents). Empty takes it from the sim config.',
+        )
+    )
+    ld.add_action(
+        DeclareLaunchArgument(
+            'map_path',
+            default_value='',
+            description='Map to load: an absolute path, a package-relative path like maps/levine, '
+                        'or a built-in gym track name like Spielberg. Empty takes it from the sim config.',
         )
     )
     ld.add_action(
