@@ -78,6 +78,7 @@ from f1tenth_gym.envs.lidar import LiDARConfig
 from f1tenth_gym.envs.observation import ObservationType
 from f1tenth_gym.envs.reset import ResetStrategy
 from f1tenth_gym.envs.track import Track, Raceline
+from f1tenth_gym.envs.track import track as gym_track
 
 
 def opp_suffix(opp_index):
@@ -179,9 +180,19 @@ def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Tr
     image_path = map_yaml_path.parent / track_spec.image
     flip_op = getattr(Image, "Transpose", Image).FLIP_TOP_BOTTOM
     image = Image.open(image_path).transpose(flip_op)
-    occupancy_map = np.array(image).astype(np.float32)
-    occupancy_map[occupancy_map <= 128] = 0.0
-    occupancy_map[occupancy_map > 128] = 255.0
+    # Same grid and walls as the gym's own loader: occupied_thresh from the yaml
+    # and the raw greys, which the gym traces walls from at sub-pixel precision.
+    # A flat 128 cut without the greys put obstacle edges up to a few cm off the
+    # walls of the same map loaded next to a <map>_centerline.csv.
+    occupancy_from_image = getattr(gym_track, '_occupancy_from_image', None)
+    grayscale_from_image = getattr(gym_track, '_grayscale_from_image', None)
+    if occupancy_from_image is not None:
+        occupancy_map = occupancy_from_image(image, track_spec)
+    else:  # a gym from before 2026-08-07 cut at 128 itself
+        occupancy_map = np.array(image).astype(np.float32)
+        occupancy_map[occupancy_map <= 128] = 0.0
+        occupancy_map[occupancy_map > 128] = 255.0
+    greys = {'occupancy_grey': grayscale_from_image(image)} if grayscale_from_image else {}
 
     centerline_path = map_yaml_path.parent / f"{map_yaml_path.stem}_centerline.csv"
     raceline_path = map_yaml_path.parent / f"{map_yaml_path.stem}_raceline.csv"
@@ -204,6 +215,7 @@ def _load_track_from_yaml(map_yaml_path: pathlib.Path, scale: float) -> tuple[Tr
         occupancy_map=occupancy_map,
         centerline=centerline,
         raceline=raceline,
+        **greys,
     )
     has_reference_line = _attach_yaml_reference_lines(track, map_yaml_path, scale)
     return track, has_reference_line
