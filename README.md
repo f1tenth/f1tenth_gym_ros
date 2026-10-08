@@ -46,8 +46,9 @@ Set up a native Ubuntu 24.04 either on your own machine (dual boot or main OS) o
    pip install -U coverage
    ```
    This installs the CPU build of JAX, which is all the bridge uses. Do **not** use `uv sync` from the gym's own README for the ROS setup: it creates a separate environment that cannot see ROS.
-7. **Check the install:**
+7. **Check the install.** Source the ROS 2 underlay first so `rclpy` is importable, then run the smoke check (venv from step 3 should still be active):
    ```bash
+   source /opt/ros/jazzy/setup.bash
    python -c "import numpy, rclpy, f1tenth_gym.envs; print('ok, numpy', numpy.__version__)"
    ```
    It should print `ok` with a NumPy 2.x version.
